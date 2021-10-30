@@ -1,5 +1,6 @@
 #include<iostream>
 #include<string.h>
+#include <fcntl.h>
 #include<sys/socket.h>
 #include<arpa/inet.h>
 #include<unistd.h>
@@ -62,6 +63,31 @@ int main(int argc,char *argv[]){
             cout<<"Addition Result is : "<<r<<endl;
             fflush(stdout); 
         }
+    }
+    else if(input == 3){
+        int read_count,source;
+        string source_path="./AOS_Assignment3.pdf";
+        source = open(source_path.c_str(), O_RDONLY);
+
+        while((read_count = read(source,buffer,BUFFER))>0){
+		    write(skt,buffer,read_count);
+	    }
+    }
+    else if(input == 4){
+        read(skt,buffer,BUFFER);
+        msg=buffer;
+        cout<<msg;
+        string file_name;
+        cin>>file_name;
+        write(skt,file_name.c_str(),file_name.size());
+
+        int dest,read_count;
+        string dest_full_path="./"+file_name;
+        dest = open(dest_full_path.c_str(), O_WRONLY|O_CREAT,S_IRUSR|S_IWUSR);
+        
+        while((read_count = read(skt,buffer,BUFFER))>0){
+		    write(dest,buffer,read_count);
+	    }
     }
     close(skt);
     return 0;

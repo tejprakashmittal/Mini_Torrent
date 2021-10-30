@@ -1,5 +1,6 @@
 #include<iostream>
 #include<string.h>
+#include <fcntl.h>
 #include<pthread.h>
 #include<sys/socket.h>
 #include<arpa/inet.h>
@@ -49,6 +50,30 @@ void *handle_client(void *args){
             cout<<"Addition Result is : "<<r<<endl;
             //fflush(stdout);
         }
+    }
+    else if(input == 3){
+        int dest,read_count;
+        string dest_full_path="./AOS_Assignment3.pdf";
+        dest = open(dest_full_path.c_str(), O_WRONLY|O_CREAT,S_IRUSR|S_IWUSR);
+        
+        while((read_count = read(client_socket,buffer,BUFFER))>0){
+		    write(dest,buffer,read_count);
+	    }
+    }
+    else if(input == 4){
+        msg="Enter file name - ";
+        write(client_socket,msg.c_str(),msg.size());
+        
+        read(client_socket,buffer,BUFFER);
+        string file_name=buffer;
+        string source_path="./"+file_name;
+        int read_count,source;
+
+        source = open(source_path.c_str(), O_RDONLY);
+
+        while((read_count = read(source,buffer,BUFFER))>0){
+		    write(client_socket,buffer,read_count);
+	    }
     }
     /*close socket*/
     close(client_socket);
