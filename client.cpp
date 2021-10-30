@@ -35,26 +35,33 @@ int main(int argc,char *argv[]){
     cout<<"Connected to the server----------"<<endl;
     /*send and recv*/
 
-    
+    int input,a=6,b=8,r=0;
+    cin>>input;
+    write(skt,&input,sizeof(input));
 
-    read(skt,buffer,BUFFER);
-    for(int i=0;buffer[i]!='\0';i++) msg.push_back(buffer[i]);
-    cout<<msg<<endl;
-    fflush(stdout);
-    msg="";
-    while(1)
-    {
-        cin>>msg;
-        memset(buffer,'\0',BUFFER);
-        if(send(skt,msg.c_str(),msg.size(),0) == -1) cout<<"Error while sending msg"<<endl;
-        msg.clear();
-        if(recv(skt,buffer,BUFFER,0) == -1) cout<<"Error while receiving msg"<<endl;
+    if(input == 1){
 
-        for(int i=0;buffer[i]!='\0';i++) msg.push_back(buffer[i]);
-        cout<<msg<<endl;
-        fflush(stdout);
-        msg.clear();
-        cin>>msg;
+        while(1)
+        {
+            cin>>a>>b;
+            write(skt,&a,sizeof(a));
+            write(skt,&b,sizeof(b));
+            read(skt,&r,sizeof(r));
+
+            cout<<"Multiplication Result is : "<<r<<endl;
+            fflush(stdout);
+        }
+    }
+    else if(input == 2){
+        while(1){
+            cin>>a>>b;
+            if(send(skt,&a,sizeof(a),0) == -1);
+            if(send(skt,&b,sizeof(b),0) == -1);
+            recv(skt,&r,sizeof(r),0);
+
+            cout<<"Addition Result is : "<<r<<endl;
+            fflush(stdout); 
+        }
     }
     close(skt);
     return 0;

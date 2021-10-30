@@ -17,25 +17,42 @@ void *handle_client(void *args){
     /*send and recv*/
      struct arg_struct *arg=(struct arg_struct *)args;
     int client_socket = arg->socket_fd;
+    int input,a,b,r=5;
     char buffer[BUFFER];
     string msg="You are now conencted to your thread";
-    write(client_socket,msg.c_str(),msg.size());
-    msg="";
-    while(1){
-        memset(buffer,'\0',BUFFER); 
-        //if(recv(client_socket,buffer,BUFFER,0) == -1) cout<<"Error while receiving msg"<<endl;  
-        read(client_socket,buffer,BUFFER);
-        //for(int i=0;buffer[i]!='\0';i++) msg.push_back(buffer[i]);
-        //memset(buffer,'\0',sizeof(buffer[0]));
-        cout<<buffer<<endl;
-        fflush(stdout);
-        //cin>>msg;
-        msg=to_string(ntohs(arg->client_addr.sin_port));
-        //if(send(client_socket,msg.c_str(),msg.size(),0) == -1) cout<<"Error while sending msg"<<endl;   
-        write(client_socket,msg.c_str(),msg.size());
+
+    read(client_socket,&input,sizeof(input));
+    if(input == 1){
+        // msg="Multiplication!!";
+        // write(client_socket,msg.c_str(),sizeof(msg));
+        while(1){
+            read(client_socket,&a,sizeof(a));
+            read(client_socket,&b,sizeof(b));
+            r=a*b;
+            cout<<r<<endl;
+            fflush(stdout);
+            write(client_socket,&r,sizeof(r));
+
+            //cout<<"Multiplication Result is : "<<r<<endl;
+            //fflush(stdout); 
+        }
+    }
+    else if(input == 2){
+        // msg="Addition!!";
+        // write(client_socket,msg.c_str(),sizeof(msg));
+        while(1){
+            read(client_socket,&a,sizeof(a));
+            read(client_socket,&b,sizeof(b));
+            r=a+b;
+            write(client_socket,&r,sizeof(r));
+
+            cout<<"Addition Result is : "<<r<<endl;
+            //fflush(stdout);
+        }
     }
     /*close socket*/
     close(client_socket);
+    pthread_exit(NULL);
 }
 
 void handle_client(int client_socket){
