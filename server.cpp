@@ -66,6 +66,7 @@ int main(){
 
     /*Listen*/
     if(listen(server_socket, QUEUE) == -1) cout<<"Error while listen syscall"<<endl;
+    cout<<"Welcome, Server is online -----------------"<<endl;
 
     /*Accept in loop*/
     unsigned int client_addr_length = sizeof(client_addr);
