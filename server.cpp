@@ -8,20 +8,31 @@
 #define BUFFER 1024
 using namespace std;
 
+struct arg_struct {
+    int socket_fd;
+    struct sockaddr_in client_addr;
+}args;
+
 void *handle_client(void *args){
     /*send and recv*/
-    int client_socket = *((int *)args);
+     struct arg_struct *arg=(struct arg_struct *)args;
+    int client_socket = arg->socket_fd;
     char buffer[BUFFER];
-    string msg="";
+    string msg="You are now conencted to your thread";
+    write(client_socket,msg.c_str(),msg.size());
+    msg="";
     while(1){
         memset(buffer,'\0',BUFFER); 
-        if(recv(client_socket,buffer,BUFFER,0) == -1) cout<<"Error while receiving msg"<<endl;  
+        //if(recv(client_socket,buffer,BUFFER,0) == -1) cout<<"Error while receiving msg"<<endl;  
+        read(client_socket,buffer,BUFFER);
         //for(int i=0;buffer[i]!='\0';i++) msg.push_back(buffer[i]);
         //memset(buffer,'\0',sizeof(buffer[0]));
         cout<<buffer<<endl;
         fflush(stdout);
-        cin>>msg;
-        if(send(client_socket,msg.c_str(),msg.size(),0) == -1) cout<<"Error while sending msg"<<endl;   
+        //cin>>msg;
+        msg=to_string(ntohs(arg->client_addr.sin_port));
+        //if(send(client_socket,msg.c_str(),msg.size(),0) == -1) cout<<"Error while sending msg"<<endl;   
+        write(client_socket,msg.c_str(),msg.size());
     }
     /*close socket*/
     close(client_socket);
@@ -54,7 +65,10 @@ int main(){
 
     /*Define server socket*/
     server_socket=socket(PF_INET,SOCK_STREAM,IPPROTO_TCP);
-    if(server_socket == -1) cout<<"Error while socket creation"<<endl;
+    if(server_socket == -1){
+        cout<<"Error while socket creation"<<endl;
+        exit(0);
+    }
 
     memset(&server_addr,0,sizeof(server_addr));
     server_addr.sin_family=AF_INET;
@@ -62,10 +76,16 @@ int main(){
     server_addr.sin_port = htons(9900);
 
     /*Bind*/
-    if(bind(server_socket, (struct sockaddr*)&server_addr, sizeof(server_addr)) == -1) cout<<"Error while bind call"<<endl;;
+    if(bind(server_socket, (struct sockaddr*)&server_addr, sizeof(server_addr)) == -1){
+        cout<<"Error while bind call"<<endl;
+        exit(0);
+    }
 
     /*Listen*/
-    if(listen(server_socket, QUEUE) == -1) cout<<"Error while listen syscall"<<endl;
+    if(listen(server_socket, QUEUE) == -1){
+        cout<<"Error while listen syscall"<<endl;
+        exit(0);
+    }
     cout<<"Welcome, Server is online -----------------"<<endl;
 
     /*Accept in loop*/
@@ -75,7 +95,9 @@ int main(){
         // pid_t pid=fork();
         // if(pid == 0) handle_client(client_socket);
             pthread_t tid;
-            pthread_create(&tid, NULL, handle_client, (void *)&client_socket);
+            args.client_addr=server_addr;
+            args.socket_fd=client_socket;
+            pthread_create(&tid, NULL, handle_client, (void *)&args);
             //pthread_join(tid[i], NULL);
             //pthread_exit(NULL);
     }

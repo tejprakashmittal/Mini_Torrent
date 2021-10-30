@@ -17,19 +17,34 @@ int main(int argc,char *argv[]){
 
     memset(buffer,'\0',sizeof(buffer[0]));
     //strcpy(buffer, argv[1]);
-    msg = argv[1];
+    //msg = argv[1];
     //cout<<buffer<<endl;
     /*Socket creation*/
 
     int skt=socket(PF_INET,SOCK_STREAM,IPPROTO_TCP);
-    if(skt == -1) cout<<"Error while socket creation"<<endl;
+    if(skt == -1){
+        cout<<"Error while socket creation"<<endl;
+        exit(0);
+    }
 
-    if(connect(skt,(struct sockaddr*)&server_addr,sizeof(server_addr)) == -1) cout<<"Error while connect syscall"<<endl;
+    if(connect(skt,(struct sockaddr*)&server_addr,sizeof(server_addr)) == -1){
+        cout<<"Error while connect syscall"<<endl;
+        exit(0);
+    }
     /*connect*/
-    
+    cout<<"Connected to the server----------"<<endl;
     /*send and recv*/
+
+    
+
+    read(skt,buffer,BUFFER);
+    for(int i=0;buffer[i]!='\0';i++) msg.push_back(buffer[i]);
+    cout<<msg<<endl;
+    fflush(stdout);
+    msg="";
     while(1)
     {
+        cin>>msg;
         memset(buffer,'\0',BUFFER);
         if(send(skt,msg.c_str(),msg.size(),0) == -1) cout<<"Error while sending msg"<<endl;
         msg.clear();
