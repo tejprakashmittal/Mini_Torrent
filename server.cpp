@@ -1,3 +1,5 @@
+#include<unordered_map>
+#include<vector>
 #include<iostream>
 #include<string.h>
 #include <fcntl.h>
@@ -9,6 +11,9 @@
 #define BUFFER 1024
 using namespace std;
 
+//unordered_map<short,sockaddr_in> ip_data;
+vector<sockaddr_in> client_data;
+
 struct arg_struct {
     int socket_fd;
     struct sockaddr_in client_addr;
@@ -16,7 +21,9 @@ struct arg_struct {
 
 void *handle_client(void *args){
     /*send and recv*/
-     struct arg_struct *arg=(struct arg_struct *)args;
+    struct arg_struct *arg=(struct arg_struct *)args;
+    //ip_data[ntohs(arg->client_addr.sin_port)] = arg->client_addr;
+    client_data.push_back(arg->client_addr);
     int client_socket = arg->socket_fd;
     int input,a,b,r=5;
     char buffer[BUFFER];
@@ -75,6 +82,9 @@ void *handle_client(void *args){
 		    write(client_socket,buffer,read_count);
 	    }
     }
+    else if(input == 5){
+        write(client_socket,&client_data[0],sizeof(client_data[0]));
+    }
     /*close socket*/
     close(client_socket);
     pthread_exit(NULL);
@@ -107,6 +117,8 @@ int main(){
 
     /*Define server socket*/
     server_socket=socket(PF_INET,SOCK_STREAM,IPPROTO_TCP);
+    int status = 1;
+    setsockopt(server_socket,SOL_SOCKET,SO_REUSEADDR,&status,sizeof(int));
     if(server_socket == -1){
         cout<<"Error while socket creation"<<endl;
         exit(0);
