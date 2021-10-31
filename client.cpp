@@ -8,21 +8,12 @@
 #define QUEUE 2
 using namespace std;
 
-int random(int min, int max) //range : [min, max]
-{
-   static bool first = true;
-   if (first) 
-   {  
-      srand( time(NULL) ); //seeding for the first time only!
-      first = false;
-   }
-   return min + rand() % (( max + 1 ) - min);
-}
+int peer_port;
+string peer_ip;
 
-int peer_port=random(1030,49151);
-
-void handle_client(int client_socket){
+void* handle_client(void *args){
     /*send and recv*/
+    int client_socket=*((int*)args);
     char buffer[BUFFER];
     string msg="";
     char ch;
@@ -35,6 +26,7 @@ void handle_client(int client_socket){
     }
     /*close socket*/
     close(client_socket);
+    pthread_exit(NULL);
 }
 
 int main(int argc,char *argv[]){
@@ -66,7 +58,7 @@ int main(int argc,char *argv[]){
     }
     /*connect*/
     cout<<"Connected to the server----------"<<endl;
-    write(skt,&peer_port,sizeof(peer_port));
+    //write(skt,&peer_port,sizeof(peer_port));
     /*send and recv*/
     while(1){
         int input,a=6,b=8,r=0;
@@ -126,7 +118,8 @@ int main(int argc,char *argv[]){
             struct sockaddr_in peer;
             char peer_buffer[BUFFER];
             read(skt,&peer,sizeof(peer));
-            //peer.sin_port=htons(9909);
+            peer.sin_port=htons(9909);
+            //peer.sin_family=AF_INET;
             peer.sin_addr.s_addr=INADDR_ANY;
             memset(buffer,'\0',BUFFER);
 
@@ -135,7 +128,9 @@ int main(int argc,char *argv[]){
                 cout<<"Error while socket creation"<<endl;
                 exit(0);
             }
+            setsockopt(peer_skt,SOL_SOCKET,SO_REUSEADDR,&status,sizeof(int));
             if(connect(peer_skt,(struct sockaddr*)&peer,sizeof(peer)) == -1){
+                perror(msg.c_str());
                 cout<<"Error while connect syscall"<<endl;
                 exit(0);
             }
@@ -168,7 +163,7 @@ int main(int argc,char *argv[]){
         }
         memset(&server_addr,0,sizeof(server_addr));
         server_addr.sin_family=AF_INET;
-        server_addr.sin_addr.s_addr = INADDR_ANY;
+        server_addr.sin_addr.s_addr = inet_addr("127.0.0.3");
         server_addr.sin_port = htons(9909);
 
         /*Bind*/
@@ -182,12 +177,13 @@ int main(int argc,char *argv[]){
             cout<<"Error while listen syscall"<<endl;
             exit(0);
         }
-        cout<<"Welcome, Server is online -----------------"<<endl;
+        cout<<"Welcome, Peer is online -----------------"<<endl;
         unsigned int client_addr_length = sizeof(client_addr);
         while(1){
             client_socket = accept(server_socket, (struct sockaddr*)&client_addr, &client_addr_length);
-            pid_t pid=fork();
-            if(pid==0) handle_client(client_socket);
+            pthread_t pid;
+            pthread_create(&pid,NULL,handle_client,(void*)&client_socket);
+            //if(pid==0) handle_client(client_socket);
         }
 
         close(server_socket);
