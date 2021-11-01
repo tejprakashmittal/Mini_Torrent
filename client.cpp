@@ -58,11 +58,16 @@ void* handle_client(void *args){
     string msg="";
     char ch;
     while(1){
+        bzero(buffer,BUFFER);
         read(client_socket,&buffer,BUFFER);
         //cout<<buffer<<endl;
         msg=buffer;
-        write(client_socket,msg.c_str(),msg.size());
-        memset(buffer,'\0',BUFFER);  
+        cout<<msg<<endl;
+        fflush(stdout);
+        bzero(buffer, BUFFER);
+		fgets(buffer, BUFFER, stdin);
+        string input=buffer;
+        write(client_socket,input.c_str(),msg.size());
     }
     /*close socket*/
     close(client_socket);
@@ -192,11 +197,17 @@ int main(int argc,char *argv[]){
             string peer_msg;
             cout<<"Start conversation with your peer -----------"<<endl;
             while(1){
-                cin>>peer_msg;
+                bzero(peer_buffer, BUFFER);
+		        fgets(peer_buffer, BUFFER, stdin);
+                peer_msg=peer_buffer;
+
                 if(peer_msg == "exit") break;
+
                 write(peer_skt,peer_msg.c_str(),peer_msg.size());
-                memset(peer_buffer,'\0',BUFFER);
+
+                bzero(peer_buffer, BUFFER);
                 read(peer_skt,&peer_buffer,BUFFER);
+
                 peer_msg=peer_buffer;
                 cout<<peer_msg<<endl;
                 fflush(stdout);
