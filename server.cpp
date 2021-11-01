@@ -166,6 +166,14 @@ void *handle_client(void *args){
         else if(cmd_list[0] == "client"){
             write(client_socket,uid_ip_port[cmd_list[1]].c_str(),uid_ip_port[cmd_list[1]].size());
         }
+        else if(cmd_list[0] == "exit"){
+            msg = "#close#";
+            write(client_socket,msg.c_str(),msg.size());
+            shutdown(client_socket,SHUT_RDWR);
+            close(client_socket);
+            pthread_exit(NULL);
+            //shutdown(client_socket,SHUT_RDWR);
+        }
     }
     /*close socket*/
     close(client_socket);

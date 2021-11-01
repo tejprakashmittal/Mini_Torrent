@@ -288,6 +288,16 @@ int main(int argc,char *argv[]){
 
         close(server_socket);
         }
+        else if(cmd_list[0] == "exit"){
+            bzero(buffer,BUFFER);
+            read(skt,buffer,BUFFER);
+            parse_buffer(buffer);
+            //cout<<cmd_list_buffer[0]<<endl;
+            if(cmd_list_buffer[0] == "close"){
+                shutdown(skt,SHUT_RDWR);
+                close(skt);
+            }
+        }
     }
     close(skt);
     return 0;
