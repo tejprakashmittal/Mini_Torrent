@@ -130,6 +130,12 @@ int main(int argc,char *argv[]){
         else if(input.substr(0,10) == "join_group"){
             input+=' '+user_id;
         }
+        else if(input.substr(0,14) == "accept_request"){
+            input+=' '+user_id;
+        }
+        else if(input.substr(0,13) == "list_requests"){
+            input+=' '+user_id;
+        }
 
         split_command(input);
         //string cmd='#'+cmd_list[0]+'#';
@@ -166,6 +172,25 @@ int main(int argc,char *argv[]){
         }
         else if(cmd_list[0] == "leave_group"){
 
+        }
+        else if(cmd_list[0] == "accept_request"){
+
+        }
+        else if(cmd_list[0] == "list_requests"){
+            bzero(buffer,BUFFER);
+            read(skt,buffer,BUFFER);
+            parse_buffer(buffer);
+            if(cmd_list_buffer.size() > 0){
+                for(auto itr:cmd_list_buffer)
+                {
+                    cout<<itr<<" ";
+                    fflush(stdout);
+                }
+            }
+            else{
+                cout<<"-----No pending requests-------"<<endl;
+                fflush(stdout);
+            }
         }
         else if(cmd_list[0] == "list_groups"){
             bzero(buffer, BUFFER);

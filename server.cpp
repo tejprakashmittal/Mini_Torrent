@@ -111,24 +111,55 @@ void *handle_client(void *args){
         }
         else if(cmd_list[0] == "join_group"){
             if(cmd_list.size() >= 3){
-                bool found=false;
-                auto itr = groups[cmd_list[1]].find(cmd_list[2]);
-                    if(itr != groups[cmd_list[1]].end()){
-                        found=true;
-                        groups[cmd_list[1]].insert(cmd_list[2]);
-                        cout<<"User added :"<<cmd_list[2]<<" "<<"Group : "<<cmd_list[1]<<endl;
-                        fflush(stdout);                    
-                    }
-                    else{
-                        cout<<"User is already member of the group"<<endl;
-                        fflush(stdout);                    
-                    }
+                pending_requests[cmd_list[1]].insert(cmd_list[2]);
+                cout<<"User ~"<<cmd_list[2]<<"added in pending list";
+                fflush(stdout);
             }
             else {
                 cout<<"Error in group joining";
                 fflush(stdout);
             }
         }
+        else if(cmd_list[0] == "accept_request"){
+            string gid = cmd_list[1];
+            string uid = cmd_list[2];
+            /* Am I Admin of gid */
+            if(group_owner.find(gid) != group_owner.end()){
+                if(group_owner[gid] == cmd_list[3]){
+                    /*If uid present in pending list of gid*/
+                    if(pending_requests.find(gid) != pending_requests.end()){
+                        auto itr = pending_requests[gid].find(uid);
+                        if(itr != pending_requests[gid].end()){
+                            auto itr = groups[cmd_list[1]].find(cmd_list[2]);
+                            if(itr == groups[cmd_list[1]].end()){
+                                groups[cmd_list[1]].insert(cmd_list[2]);
+                                cout<<"User added :"<<cmd_list[2]<<" "<<"Group : "<<cmd_list[1]<<endl;
+                                fflush(stdout);                    
+                            }
+                            else{
+                                cout<<"User is already member of the group"<<endl;
+                                fflush(stdout);                    
+                            }
+                        }
+                        pending_requests[gid].erase(itr);
+                    }
+                }
+            }
+        }
+        else if(cmd_list[0] == "list_requests"){
+            if(group_owner[cmd_list[1]] == cmd_list[2]){
+                string pending_list="#";
+                string gid = cmd_list[1];
+                for(auto itr:pending_requests[gid]){
+                    pending_list += itr + '#';
+                }
+                write(client_socket,pending_list.c_str(),pending_list.size());
+            }
+            else{
+                cout<<"User ~"<<cmd_list[2]<<" is not the owner of "<<cmd_list[1]<<" group"<<endl;
+                fflush(stdout);
+            }
+        }                
         else if(cmd_list[0] == "leave_group"){
 
         }
