@@ -12,11 +12,14 @@ using namespace std;
 
 int peer_port;
 string peer_ip;
+string user_id;
+bool logged_in=false;
 
 vector<string> cmd_list;
 vector<string> cmd_list_buffer;
 
 void split_command(string cmd_str){
+  cmd_list.clear();
   istringstream ss(cmd_str);
   string word;
   while(ss >> word){
@@ -40,6 +43,7 @@ string parse_cmd_list(){
 }
 
 void parse_buffer(char buffer[]){
+    cmd_list_buffer.clear();
     string cmd="";
     for(int i=1;i<BUFFER && buffer[i]!='\0';i++){
         if(buffer[i]=='#'){
@@ -117,9 +121,16 @@ int main(int argc,char *argv[]){
 		fgets(buffer, BUFFER, stdin);
         string input=buffer;
         if(input.substr(0,5) == "login"){
-            fflush(stdout);
+            //fflush(stdout);
             input+=' '+peer_ip+' '+to_string(peer_port);
         }
+        else if(input.substr(0,12) == "create_group"){
+            input+=' '+user_id;
+        }
+        else if(input.substr(0,10) == "join_group"){
+            input+=' '+user_id;
+        }
+
         split_command(input);
         //string cmd='#'+cmd_list[0]+'#';
         string cmd = parse_cmd_list();
@@ -143,7 +154,30 @@ int main(int argc,char *argv[]){
             read(skt,buffer,BUFFER);
             msg=buffer;
             cout<<msg<<endl;
+            logged_in = true;
+            user_id = cmd_list[1];
             cmd_list.clear();
+        }
+        else if(cmd_list[0] == "create_group"){
+
+        }
+        else if(cmd_list[0] == "join_group"){
+
+        }
+        else if(cmd_list[0] == "leave_group"){
+
+        }
+        else if(cmd_list[0] == "list_groups"){
+            bzero(buffer, BUFFER);
+            read(skt,buffer,BUFFER);
+            parse_buffer(buffer);
+
+            if(cmd_list_buffer.size() > 0){
+                for(auto itr:cmd_list_buffer){
+                    cout<<itr<<endl;
+                    fflush(stdout);
+                }
+            }
         }
         else if(cmd_list[0] == "file_upload"){
             int read_count,source;

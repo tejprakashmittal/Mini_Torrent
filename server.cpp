@@ -1,4 +1,5 @@
 #include<unordered_map>
+#include<unordered_set>
 #include<vector>
 #include<iostream>
 #include<string.h>
@@ -14,6 +15,9 @@ using namespace std;
 //unordered_map<short,sockaddr_in> ip_data;
 vector<sockaddr_in> client_data;
 vector<string> cmd_list;
+unordered_map<string, unordered_set<string>> groups;
+unordered_map<string, unordered_set<string>> pending_requests;
+unordered_map<string,string> group_owner;
 unordered_map<string,string> uid_ip_port;
 unordered_map<string,string> users_cred;
 
@@ -49,6 +53,7 @@ void *handle_client(void *args){
     client_data.push_back(arg->client_addr);
     int client_socket = arg->socket_fd;
     int input,a,b,r=5;
+    //string cur_user="";
     char buffer[BUFFER];
     string msg="";
     while(1){
@@ -69,7 +74,7 @@ void *handle_client(void *args){
             //read(client_socket,&buffer,BUFFER);
             //parse_buffer(buffer);
             users_cred[cmd_list[1]] = cmd_list[2];
-            cout<<"User created : "<<cmd_list[1];
+            cout<<"User created : "<<cmd_list[1]<<endl;
             fflush(stdout);
             string resp="User_Created_Successfully";
             //cout<<users_cred[cmd_list[1]];
@@ -84,12 +89,55 @@ void *handle_client(void *args){
             // parse_buffer(buffer);
             if(verify(cmd_list[1],cmd_list[2])){
                 uid_ip_port[cmd_list[1]] = '#'+cmd_list[3]+'#'+cmd_list[4]+'#';
-                cout<<"User logged in : "<<cmd_list[1];
+                cout<<"User logged in : "<<cmd_list[1]<<endl;
                 fflush(stdout);
                 msg="Login Successful";
                 write(client_socket,msg.c_str(),msg.size());
+                //cur_user = cmd_list[1];
             }
             cmd_list.clear();       
+        }
+        else if(cmd_list[0] == "create_group"){
+            if(cmd_list.size() >= 3){
+                groups[cmd_list[1]].insert(cmd_list[2]);
+                group_owner[cmd_list[1]] = cmd_list[2];
+                cout<<"Group created : "<<cmd_list[1]<<endl;
+                fflush(stdout);
+            }
+            else {
+                cout<<"Error in group creation";
+                fflush(stdout);
+            }
+        }
+        else if(cmd_list[0] == "join_group"){
+            if(cmd_list.size() >= 3){
+                bool found=false;
+                auto itr = groups[cmd_list[1]].find(cmd_list[2]);
+                    if(itr != groups[cmd_list[1]].end()){
+                        found=true;
+                        groups[cmd_list[1]].insert(cmd_list[2]);
+                        cout<<"User added :"<<cmd_list[2]<<" "<<"Group : "<<cmd_list[1]<<endl;
+                        fflush(stdout);                    
+                    }
+                    else{
+                        cout<<"User is already member of the group"<<endl;
+                        fflush(stdout);                    
+                    }
+            }
+            else {
+                cout<<"Error in group joining";
+                fflush(stdout);
+            }
+        }
+        else if(cmd_list[0] == "leave_group"){
+
+        }
+        else if(cmd_list[0] == "list_groups"){
+            string group_list="#";
+            for(auto itr:groups){
+                group_list+=itr.first +'#';
+            }
+            write(client_socket,group_list.c_str(),group_list.size());
         }
         else if(input == 3){
             int dest,read_count;
