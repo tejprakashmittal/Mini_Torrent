@@ -136,6 +136,9 @@ int main(int argc,char *argv[]){
         else if(input.substr(0,13) == "list_requests"){
             input+=' '+user_id;
         }
+        else if(input.substr(0,11) == "leave_group"){
+            input+=' '+user_id;
+        }
 
         split_command(input);
         //string cmd='#'+cmd_list[0]+'#';
@@ -168,7 +171,8 @@ int main(int argc,char *argv[]){
 
         }
         else if(cmd_list[0] == "join_group"){
-
+            cout<<"---Request sent---"<<endl;
+            fflush(stdout);
         }
         else if(cmd_list[0] == "leave_group"){
 
@@ -184,8 +188,9 @@ int main(int argc,char *argv[]){
                 for(auto itr:cmd_list_buffer)
                 {
                     cout<<itr<<" ";
-                    fflush(stdout);
                 }
+                fflush(stdout);
+                cout<<endl;
             }
             else{
                 cout<<"-----No pending requests-------"<<endl;
@@ -199,9 +204,10 @@ int main(int argc,char *argv[]){
 
             if(cmd_list_buffer.size() > 0){
                 for(auto itr:cmd_list_buffer){
-                    cout<<itr<<endl;
-                    fflush(stdout);
+                    cout<<itr<<" ";
                 }
+                fflush(stdout);
+                cout<<endl;
             }
         }
         else if(cmd_list[0] == "file_upload"){

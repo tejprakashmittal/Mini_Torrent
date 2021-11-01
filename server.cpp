@@ -120,6 +120,23 @@ void *handle_client(void *args){
                 fflush(stdout);
             }
         }
+        else if(cmd_list[0] == "leave_group"){
+            string gid = cmd_list[1];
+            string uid = cmd_list[2];
+            if(group_owner[gid] != uid){
+                auto itr = groups[gid].find(uid);
+                if(itr != groups[gid].end()){
+                    groups[gid].erase(itr);
+                    cout<<"User left the group"<<endl;
+                }
+                else 
+                    cout<<"---> User already not in the group"<<endl;
+            }
+            else{
+
+            }
+            fflush(stdout);
+        }
         else if(cmd_list[0] == "accept_request"){
             string gid = cmd_list[1];
             string uid = cmd_list[2];
