@@ -13,11 +13,34 @@ using namespace std;
 
 //unordered_map<short,sockaddr_in> ip_data;
 vector<sockaddr_in> client_data;
+vector<string> cmd_list;
+unordered_map<string,string> uid_ip_port;
+unordered_map<string,string> users_cred;
 
 struct arg_struct {
     int socket_fd;
     struct sockaddr_in client_addr;
 }args;
+
+void parse_buffer(char buffer[]){
+    cmd_list.clear();
+    string cmd="";
+    for(int i=1;i<BUFFER && buffer[i]!='\0';i++){
+        if(buffer[i]=='#'){
+            cmd_list.push_back(cmd);
+            cmd="";
+        }
+        else
+        cmd.push_back(buffer[i]);
+    }
+}
+
+bool verify(string uname,string pass){
+    if(users_cred.find(uname) != users_cred.end()){
+        if(users_cred[uname] == pass) return true;
+    }
+    return false;
+}
 
 void *handle_client(void *args){
     /*send and recv*/
@@ -27,63 +50,74 @@ void *handle_client(void *args){
     int client_socket = arg->socket_fd;
     int input,a,b,r=5;
     char buffer[BUFFER];
-    string msg="You are now conencted to your thread";
-
-    read(client_socket,&input,sizeof(input));
-    if(input == 1){
-        // msg="Multiplication!!";
-        // write(client_socket,msg.c_str(),sizeof(msg));
-        while(1){
-            read(client_socket,&a,sizeof(a));
-            read(client_socket,&b,sizeof(b));
-            r=a*b;
-            cout<<r<<endl;
-            fflush(stdout);
-            write(client_socket,&r,sizeof(r));
-
-            //cout<<"Multiplication Result is : "<<r<<endl;
-            //fflush(stdout); 
-        }
-    }
-    else if(input == 2){
-        // msg="Addition!!";
-        // write(client_socket,msg.c_str(),sizeof(msg));
-        while(1){
-            read(client_socket,&a,sizeof(a));
-            read(client_socket,&b,sizeof(b));
-            r=a+b;
-            write(client_socket,&r,sizeof(r));
-
-            cout<<"Addition Result is : "<<r<<endl;
-            //fflush(stdout);
-        }
-    }
-    else if(input == 3){
-        int dest,read_count;
-        string dest_full_path="./AOS_Assignment3.pdf";
-        dest = open(dest_full_path.c_str(), O_WRONLY|O_CREAT,S_IRUSR|S_IWUSR);
-        
-        while((read_count = read(client_socket,buffer,BUFFER))>0){
-		    write(dest,buffer,read_count);
-	    }
-    }
-    else if(input == 4){
-        msg="Enter file name - ";
-        write(client_socket,msg.c_str(),msg.size());
-        
+    string msg="";
+    while(1){
+        //memset(buffer,'\0',BUFFER);
+        bzero(buffer,BUFFER);
         read(client_socket,buffer,BUFFER);
-        string file_name=buffer;
-        string source_path="./"+file_name;
-        int read_count,source;
+        if(buffer[0]!='#') {
+            cout<<buffer<<endl;
+            cout<<"Invalid Input";
+            fflush(stdout);
+            exit(0);
+        }
+        parse_buffer(buffer);
+        fflush(stdout);
+        if(cmd_list[0] == "create_user"){
+            //memset(buffer,'\0',BUFFER);
+            //sleep(1);
+            //read(client_socket,&buffer,BUFFER);
+            //parse_buffer(buffer);
+            users_cred[cmd_list[1]] = cmd_list[2];
+            cout<<"User created : "<<cmd_list[1];
+            fflush(stdout);
+            string resp="User_Created_Successfully";
+            //cout<<users_cred[cmd_list[1]];
+            //fflush(stdout);
+            write(client_socket,resp.c_str(),resp.size());
+            cmd_list.clear();
+        }
+        else if(cmd_list[0] == "login"){
+            // cmd_list.clear();
+            // memset(buffer,'\0',BUFFER);
+            // read(client_socket,buffer,BUFFER);
+            // parse_buffer(buffer);
+            if(verify(cmd_list[1],cmd_list[2])){
+                uid_ip_port[cmd_list[1]] = '#'+cmd_list[3]+'#'+cmd_list[4]+'#';
+                cout<<"User logged in : "<<cmd_list[1];
+                fflush(stdout);
+                msg="Login Successful";
+                write(client_socket,msg.c_str(),msg.size());
+            }
+            cmd_list.clear();       
+        }
+        else if(input == 3){
+            int dest,read_count;
+            string dest_full_path="./AOS_Assignment3.pdf";
+            dest = open(dest_full_path.c_str(), O_WRONLY|O_CREAT,S_IRUSR|S_IWUSR);
+            
+            while((read_count = read(client_socket,buffer,BUFFER))>0){
+                write(dest,buffer,read_count);
+            }
+        }
+        else if(input == 4){
+            msg="Enter file name - ";
+            write(client_socket,msg.c_str(),msg.size());
+            
+            read(client_socket,buffer,BUFFER);
+            string file_name=buffer;
+            string source_path="./"+file_name;
+            int read_count,source;
 
-        source = open(source_path.c_str(), O_RDONLY);
+            source = open(source_path.c_str(), O_RDONLY);
 
-        while((read_count = read(source,buffer,BUFFER))>0){
-		    write(client_socket,buffer,read_count);
-	    }
-    }
-    else if(input == 5){
-        write(client_socket,&client_data[0],sizeof(client_data[0]));
+            while((read_count = read(source,buffer,BUFFER))>0){
+                write(client_socket,buffer,read_count);
+            }
+        }
+        else if(cmd_list[0] == "client"){
+            write(client_socket,uid_ip_port[cmd_list[1]].c_str(),uid_ip_port[cmd_list[1]].size());
+        }
     }
     /*close socket*/
     close(client_socket);

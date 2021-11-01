@@ -1,6 +1,8 @@
 #include<iostream>
 #include<string.h>
+#include<vector>
 #include <fcntl.h>
+#include<sstream>
 #include<sys/socket.h>
 #include<arpa/inet.h>
 #include<unistd.h>
@@ -10,6 +12,44 @@ using namespace std;
 
 int peer_port;
 string peer_ip;
+
+vector<string> cmd_list;
+vector<string> cmd_list_buffer;
+
+void split_command(string cmd_str){
+  istringstream ss(cmd_str);
+  string word;
+  while(ss >> word){
+    cmd_list.push_back(word);
+  }
+}
+
+int toInt(string str){
+    stringstream sst(str);
+    int x=0;
+    sst>>x;
+    return x;
+}
+
+string parse_cmd_list(){
+    string cmd="#";
+    for(int i=0;i<cmd_list.size();i++){
+        cmd+=cmd_list[i]+'#';
+    }
+    return cmd;
+}
+
+void parse_buffer(char buffer[]){
+    string cmd="";
+    for(int i=1;i<BUFFER && buffer[i]!='\0';i++){
+        if(buffer[i]=='#'){
+            cmd_list_buffer.push_back(cmd);
+            cmd="";
+        }
+        else
+        cmd.push_back(buffer[i]);
+    }
+}
 
 void* handle_client(void *args){
     /*send and recv*/
@@ -30,6 +70,10 @@ void* handle_client(void *args){
 }
 
 int main(int argc,char *argv[]){
+
+    peer_ip=argv[1];
+    peer_port=atoi(argv[2]);
+
     struct sockaddr_in server_addr;
     server_addr.sin_family=AF_INET;
     server_addr.sin_addr.s_addr=inet_addr("127.0.0.1");
@@ -58,38 +102,45 @@ int main(int argc,char *argv[]){
     }
     /*connect*/
     cout<<"Connected to the server----------"<<endl;
+    cout<<"type command below"<<endl;
     //write(skt,&peer_port,sizeof(peer_port));
     /*send and recv*/
     while(1){
-        int input,a=6,b=8,r=0;
-        cin>>input;
-        write(skt,&input,sizeof(input));
-
-        if(input == 1){
-
-            while(1)
-            {
-                cin>>a>>b;
-                write(skt,&a,sizeof(a));
-                write(skt,&b,sizeof(b));
-                read(skt,&r,sizeof(r));
-
-                cout<<"Multiplication Result is : "<<r<<endl;
-                fflush(stdout);
-            }
+        // string input="";
+        // cin>>input;
+		bzero(buffer, BUFFER);
+		fgets(buffer, BUFFER, stdin);
+        string input=buffer;
+        if(input.substr(0,5) == "login"){
+            fflush(stdout);
+            input+=' '+peer_ip+' '+to_string(peer_port);
         }
-        else if(input == 2){
-            while(1){
-                cin>>a>>b;
-                if(send(skt,&a,sizeof(a),0) == -1);
-                if(send(skt,&b,sizeof(b),0) == -1);
-                recv(skt,&r,sizeof(r),0);
+        split_command(input);
+        //string cmd='#'+cmd_list[0]+'#';
+        string cmd = parse_cmd_list();
+        //cout<<cmd;
+        fflush(stdout);
+        write(skt,cmd.c_str(),cmd.size());
 
-                cout<<"Addition Result is : "<<r<<endl;
-                fflush(stdout); 
-            }
+        if(cmd_list[0] == "create_user"){
+            // string user_pass='#'+cmd_list[1]+'#'+cmd_list[2]+'#';
+            // write(skt,user_pass.c_str(),user_pass.size());
+            memset(buffer,'\0',BUFFER);
+            read(skt,buffer,BUFFER);
+            msg=buffer;
+            cout<<msg<<endl;
+            cmd_list.clear();
         }
-        else if(input == 3){
+        else if(cmd_list[0] == "login"){
+            //string uauth_nd_ip_port='#'+cmd_list[1]+'#'+cmd_list[2]+'#'+peer_ip+'#'+to_string(peer_port)+'#';
+            //write(skt,uauth_nd_ip_port.c_str(),uauth_nd_ip_port.size());
+            bzero(buffer, BUFFER);
+            read(skt,buffer,BUFFER);
+            msg=buffer;
+            cout<<msg<<endl;
+            cmd_list.clear();
+        }
+        else if(cmd_list[0] == "file_upload"){
             int read_count,source;
             string source_path="./AOS_Assignment3.pdf";
             source = open(source_path.c_str(), O_RDONLY);
@@ -98,7 +149,7 @@ int main(int argc,char *argv[]){
                 write(skt,buffer,read_count);
             }
         }
-        else if(input == 4){
+        else if(cmd_list[0] == "file_download"){
             read(skt,buffer,BUFFER);
             msg=buffer;
             cout<<msg;
@@ -114,13 +165,17 @@ int main(int argc,char *argv[]){
                 write(dest,buffer,read_count);
             }
         }
-        else if(input == 5){
+        else if(cmd_list[0] == "client"){
             struct sockaddr_in peer;
             char peer_buffer[BUFFER];
-            read(skt,&peer,sizeof(peer));
-            peer.sin_port=htons(9909);
-            //peer.sin_family=AF_INET;
-            peer.sin_addr.s_addr=INADDR_ANY;
+
+            bzero(peer_buffer,BUFFER);
+            read(skt,peer_buffer,BUFFER);
+            parse_buffer(peer_buffer);
+            
+            peer.sin_port=htons(toInt(cmd_list_buffer[1]));
+            peer.sin_family=AF_INET;
+            peer.sin_addr.s_addr=inet_addr(cmd_list_buffer[0].c_str());
             memset(buffer,'\0',BUFFER);
 
             int peer_skt=socket(PF_INET,SOCK_STREAM,IPPROTO_TCP);
@@ -148,7 +203,7 @@ int main(int argc,char *argv[]){
             }        
             close(peer_skt);
         }
-        else if(input == 6){
+        else if(cmd_list[0] == "server"){
             /*Working as a server ----------------*/
         int server_socket,client_socket;
         struct sockaddr_in server_addr;
@@ -163,8 +218,8 @@ int main(int argc,char *argv[]){
         }
         memset(&server_addr,0,sizeof(server_addr));
         server_addr.sin_family=AF_INET;
-        server_addr.sin_addr.s_addr = inet_addr("127.0.0.3");
-        server_addr.sin_port = htons(9909);
+        server_addr.sin_addr.s_addr = inet_addr(peer_ip.c_str());
+        server_addr.sin_port = htons(peer_port);
 
         /*Bind*/
         if(bind(server_socket, (struct sockaddr*)&server_addr, sizeof(server_addr)) == -1){
