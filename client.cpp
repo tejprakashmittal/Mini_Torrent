@@ -124,6 +124,9 @@ int main(int argc,char *argv[]){
             //fflush(stdout);
             input+=' '+peer_ip+' '+to_string(peer_port);
         }
+        else if(input.substr(0,11) == "upload_file"){
+            input+=' '+peer_ip+' '+to_string(peer_port);
+        }
         else if(input.substr(0,12) == "create_group"){
             input+=' '+user_id;
         }
@@ -181,6 +184,7 @@ int main(int argc,char *argv[]){
 
         }
         else if(cmd_list[0] == "list_requests"){
+            cout<<"-----------------------------------------------------------------------------"<<endl;
             bzero(buffer,BUFFER);
             read(skt,buffer,BUFFER);
             parse_buffer(buffer);
@@ -198,6 +202,7 @@ int main(int argc,char *argv[]){
             }
         }
         else if(cmd_list[0] == "list_groups"){
+            cout<<"-----------------------------------------------------------------------------"<<endl;
             bzero(buffer, BUFFER);
             read(skt,buffer,BUFFER);
             parse_buffer(buffer);
@@ -206,9 +211,50 @@ int main(int argc,char *argv[]){
                 for(auto itr:cmd_list_buffer){
                     cout<<itr<<" ";
                 }
-                fflush(stdout);
                 cout<<endl;
             }
+            fflush(stdout);
+        }
+        else if(cmd_list[0] == "my_groups"){
+            cout<<"-----------------------------------------------------------------------------"<<endl;
+            bzero(buffer,BUFFER);
+            read(skt,buffer,BUFFER);
+            parse_buffer(buffer);
+
+            if(cmd_list_buffer.size() > 0){
+                for(auto itr:cmd_list_buffer){
+                    cout<<itr<<" ";
+                }
+            }
+            else cout<<"---You are not the member of any group---";
+            cout<<endl;
+            fflush(stdout);
+        }
+        else if(cmd_list[0] == "upload_file"){
+            bzero(buffer,BUFFER);
+            read(skt,buffer,BUFFER);
+            cout<<buffer<<endl;
+            fflush(stdout);
+        }
+        else if(cmd_list[0] == "list_files"){
+            cout<<"-----------------------------------------------------------------------------"<<endl;
+            if(cmd_list.size() >= 2){
+                bzero(buffer,BUFFER);
+                read(skt,buffer,BUFFER);
+                parse_buffer(buffer);
+
+                if(cmd_list_buffer.size() > 0){
+                    for(auto itr:cmd_list_buffer){
+                        cout<<itr<<" ";
+                    }
+                }
+                else cout<<"---No files under requested group---";
+            }
+            else{
+                cout<<"---Invalid Command---";
+            }
+            cout<<endl;
+            fflush(stdout);
         }
         else if(cmd_list[0] == "file_upload"){
             int read_count,source;

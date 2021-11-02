@@ -1,5 +1,6 @@
 #include<unordered_map>
 #include<unordered_set>
+#include<set>
 #include<vector>
 #include<iostream>
 #include<string.h>
@@ -17,6 +18,7 @@ vector<sockaddr_in> client_data;
 vector<string> cmd_list;
 unordered_map<string, unordered_set<string>> groups;
 unordered_map<string, unordered_set<string>> pending_requests;
+unordered_map<string,unordered_map<string,set<pair<string,string>>>> all_files;
 unordered_map<string,string> group_owner;
 unordered_map<string,string> uid_ip_port;
 unordered_map<string,string> users_cred;
@@ -25,6 +27,14 @@ struct arg_struct {
     int socket_fd;
     struct sockaddr_in client_addr;
 }args;
+
+string getFileName(string filepath){
+  int pos = filepath.find_last_of('/');
+       if(pos!=string::npos){
+         return filepath.substr(pos+1);
+    }
+    return filepath;
+}
 
 void parse_buffer(char buffer[]){
     cmd_list.clear();
@@ -112,7 +122,7 @@ void *handle_client(void *args){
         else if(cmd_list[0] == "join_group"){
             if(cmd_list.size() >= 3){
                 pending_requests[cmd_list[1]].insert(cmd_list[2]);
-                cout<<"User ~"<<cmd_list[2]<<"added in pending list";
+                cout<<"User @"<<cmd_list[2]<<"added in pending list"<<endl;
                 fflush(stdout);
             }
             else {
@@ -133,7 +143,30 @@ void *handle_client(void *args){
                     cout<<"---> User already not in the group"<<endl;
             }
             else{
+                /*delete current person from groups map*/
+                auto itr = groups[gid];
+                itr.erase(itr.find(uid));
+                if(itr.empty() == true){
+                    groups.erase(gid);
+                    group_owner.erase(gid);
+                }
+                else{
+                /*select anyone from any group,say first member of first group and make admin*/
+                    string newUid;
 
+                    // for(auto it:groups) {
+                    //     auto itrat = it.second;
+                    //     newUid = *itrat.begin();
+                    //     break;
+                    // }
+                    for(auto x=itr.begin();x!=itr.end();x++){
+                        if(*x == uid) continue;
+                        newUid = *x;
+                        break;
+                    }
+                    group_owner[gid] = newUid;
+                    cout<<"User,who left, was admin, So now --"<<group_owner[gid]<<"--is the new Admin of --"<<gid<<endl;
+                }
             }
             fflush(stdout);
         }
@@ -176,9 +209,6 @@ void *handle_client(void *args){
                 cout<<"User ~"<<cmd_list[2]<<" is not the owner of "<<cmd_list[1]<<" group"<<endl;
                 fflush(stdout);
             }
-        }                
-        else if(cmd_list[0] == "leave_group"){
-
         }
         else if(cmd_list[0] == "list_groups"){
             string group_list="#";
@@ -186,6 +216,43 @@ void *handle_client(void *args){
                 group_list+=itr.first +'#';
             }
             write(client_socket,group_list.c_str(),group_list.size());
+        }
+        else if(cmd_list[0] == "my_groups"){
+            string my_uid = cmd_list[1];
+            string my_group_list="#";
+            for(auto itr:groups){
+                if((itr.second).find(my_uid) != (itr.second).end()) my_group_list += itr.first +'#';
+            }
+            write(client_socket,my_group_list.c_str(),my_group_list.size());
+        }
+        else if(cmd_list[0] == "upload_file"){
+            string filename = getFileName(cmd_list[1]);
+            if(all_files[cmd_list[2]][filename].find({cmd_list[3],cmd_list[4]}) == all_files[cmd_list[2]][filename].end())
+            {
+                all_files[cmd_list[2]][filename].insert({cmd_list[3],cmd_list[4]});
+                msg = "---Successfully uploaded---";
+                write(client_socket,msg.c_str(),msg.size());
+                cout<<"---File---"<<filename<<"---Group---"<<cmd_list[2]<<endl;
+            }
+            else{
+                msg = "---Already uploaded---";
+                write(client_socket,msg.c_str(),msg.size());
+            }
+            fflush(stdout);
+        }
+        else if(cmd_list[0] == "list_files"){
+            if(cmd_list.size() >= 2){
+                string files_list="#";
+                if(all_files.find(cmd_list[1]) != all_files.end())
+                {
+                    auto files = all_files[cmd_list[1]];
+                    for(auto file:files){
+                        files_list += file.first +'#';
+                    }
+                }
+                write(client_socket,files_list.c_str(),BUFFER);
+            }
+            fflush(stdout);
         }
         else if(input == 3){
             int dest,read_count;
