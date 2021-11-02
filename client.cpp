@@ -11,9 +11,13 @@
 using namespace std;
 
 int peer_port;
+int status =1;
 string peer_ip;
 string user_id;
+string msg="";
 bool logged_in=false;
+
+char buffer[BUFFER];
 
 vector<string> cmd_list;
 vector<string> cmd_list_buffer;
@@ -78,18 +82,11 @@ void* handle_client(void *args){
     pthread_exit(NULL);
 }
 
-int main(int argc,char *argv[]){
-
-    peer_ip=argv[1];
-    peer_port=atoi(argv[2]);
-
+int init_client_mode(){
     struct sockaddr_in server_addr;
     server_addr.sin_family=AF_INET;
     server_addr.sin_addr.s_addr=inet_addr("127.0.0.1");
     server_addr.sin_port=htons(9900);
-
-    char buffer[BUFFER];
-    string msg="";
 
     memset(buffer,'\0',sizeof(buffer[0]));
     //strcpy(buffer, argv[1]);
@@ -102,7 +99,7 @@ int main(int argc,char *argv[]){
         cout<<"Error while socket creation"<<endl;
         exit(0);
     }
-    int status=1;
+    
     setsockopt(skt,SOL_SOCKET,SO_REUSEADDR,&status,sizeof(int));
 
     if(connect(skt,(struct sockaddr*)&server_addr,sizeof(server_addr)) == -1){
@@ -112,6 +109,17 @@ int main(int argc,char *argv[]){
     /*connect*/
     cout<<"Connected to the server----------"<<endl;
     cout<<"type command below"<<endl;
+    return skt;
+}
+
+int main(int argc,char *argv[]){
+
+    peer_ip=argv[1];
+    peer_port=atoi(argv[2]);
+    
+    int skt = init_client_mode();
+    //init_server_mode();
+
     //write(skt,&peer_port,sizeof(peer_port));
     /*send and recv*/
     while(1){
