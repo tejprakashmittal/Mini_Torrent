@@ -256,6 +256,23 @@ int main(int argc,char *argv[]){
             cout<<endl;
             fflush(stdout);
         }
+        else if(cmd_list[0] == "download_file"){
+            if(cmd_list.size() >= 4){
+                bzero(buffer,BUFFER);
+                read(skt,buffer,BUFFER);
+                parse_buffer(buffer);
+
+                if(cmd_list_buffer.size() > 0){
+                    for(auto itr:cmd_list_buffer){
+                        cout<<itr<<" ";
+                    }
+                }
+                else cout<<"---File is not available to download---";
+            }
+            else cout<<"---Invalid Command---";
+            cout<<endl;
+            fflush(stdout);
+        }
         else if(cmd_list[0] == "file_upload"){
             int read_count,source;
             string source_path="./AOS_Assignment3.pdf";

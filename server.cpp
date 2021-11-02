@@ -254,6 +254,19 @@ void *handle_client(void *args){
             }
             fflush(stdout);
         }
+        else if(cmd_list[0] == "download_file"){
+            if(cmd_list.size() >= 4){
+                string ip_port="#";
+                if(all_files.find(cmd_list[1]) != all_files.end()){
+                    if(all_files[cmd_list[1]].find(cmd_list[2]) != all_files[cmd_list[1]].end()){
+                        ip_port += (*(all_files[cmd_list[1]][cmd_list[2]].begin())).first +'#'+(*(all_files[cmd_list[1]][cmd_list[2]].begin())).second + '#';
+                    }
+                }
+                write(client_socket,ip_port.c_str(),BUFFER);
+            }
+            cout<<endl;
+            fflush(stdout);
+        }
         else if(input == 3){
             int dest,read_count;
             string dest_full_path="./AOS_Assignment3.pdf";
