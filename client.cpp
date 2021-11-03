@@ -22,6 +22,14 @@ char buffer[BUFFER];
 vector<string> cmd_list;
 vector<string> cmd_list_buffer;
 
+struct _download_it{
+    string ip,port;
+}_args;
+
+void* download_it(void* args){
+    
+}
+
 void split_command(string cmd_str){
   cmd_list.clear();
   istringstream ss(cmd_str);
@@ -99,7 +107,7 @@ int init_client_mode(){
         cout<<"Error while socket creation"<<endl;
         exit(0);
     }
-    
+
     setsockopt(skt,SOL_SOCKET,SO_REUSEADDR,&status,sizeof(int));
 
     if(connect(skt,(struct sockaddr*)&server_addr,sizeof(server_addr)) == -1){
@@ -112,13 +120,55 @@ int init_client_mode(){
     return skt;
 }
 
+void* init_server_mode(void* args){
+                /*Working as a server ----------------*/
+        int server_socket,client_socket;
+        struct sockaddr_in server_addr;
+        struct sockaddr_in client_addr;
+
+        /*Define server socket*/
+        server_socket=socket(PF_INET,SOCK_STREAM,IPPROTO_TCP);
+        setsockopt(server_socket,SOL_SOCKET,SO_REUSEADDR,&status,sizeof(int));
+        if(server_socket == -1){
+            cout<<"Error while socket creation"<<endl;
+            exit(0);
+        }
+        memset(&server_addr,0,sizeof(server_addr));
+        server_addr.sin_family=AF_INET;
+        server_addr.sin_addr.s_addr = inet_addr(peer_ip.c_str());
+        server_addr.sin_port = htons(peer_port);
+
+        /*Bind*/
+        if(bind(server_socket, (struct sockaddr*)&server_addr, sizeof(server_addr)) == -1){
+            cout<<"Error while bind call"<<endl;
+            exit(0);
+        }
+
+        /*Listen*/
+        if(listen(server_socket, QUEUE) == -1){
+            cout<<"Error while listen syscall"<<endl;
+            exit(0);
+        }
+        cout<<"Welcome, Peer is online -----------------"<<endl;
+        unsigned int client_addr_length = sizeof(client_addr);
+        while(1){
+            client_socket = accept(server_socket, (struct sockaddr*)&client_addr, &client_addr_length);
+            pthread_t pid;
+            pthread_create(&pid,NULL,handle_client,(void*)&client_socket);
+            //if(pid==0) handle_client(client_socket);
+        }
+
+        close(server_socket);
+}
+
 int main(int argc,char *argv[]){
 
     peer_ip=argv[1];
     peer_port=atoi(argv[2]);
     
     int skt = init_client_mode();
-    //init_server_mode();
+    pthread_t t_serv_id;
+    pthread_create(&t_serv_id,NULL,init_server_mode,NULL);
 
     //write(skt,&peer_port,sizeof(peer_port));
     /*send and recv*/
@@ -269,11 +319,17 @@ int main(int argc,char *argv[]){
                 bzero(buffer,BUFFER);
                 read(skt,buffer,BUFFER);
                 parse_buffer(buffer);
-
+                string target_ip,target_port;
                 if(cmd_list_buffer.size() > 0){
-                    for(auto itr:cmd_list_buffer){
-                        cout<<itr<<" ";
-                    }
+                    // for(auto itr:cmd_list_buffer){
+                    //     cout<<itr<<" ";
+                    // }
+                    target_ip = cmd_list_buffer[0];
+                    target_port = cmd_list_buffer[1];
+                    _args.ip = target_ip;
+                    _args.port = target_port;
+                    pthread_t target_tid;
+                    pthread_create(&target_tid, NULL, download_it, (void*)&_args);
                 }
                 else cout<<"---File is not available to download---";
             }
@@ -351,44 +407,7 @@ int main(int argc,char *argv[]){
             close(peer_skt);
         }
         else if(cmd_list[0] == "server"){
-            /*Working as a server ----------------*/
-        int server_socket,client_socket;
-        struct sockaddr_in server_addr;
-        struct sockaddr_in client_addr;
 
-        /*Define server socket*/
-        server_socket=socket(PF_INET,SOCK_STREAM,IPPROTO_TCP);
-        setsockopt(server_socket,SOL_SOCKET,SO_REUSEADDR,&status,sizeof(int));
-        if(server_socket == -1){
-            cout<<"Error while socket creation"<<endl;
-            exit(0);
-        }
-        memset(&server_addr,0,sizeof(server_addr));
-        server_addr.sin_family=AF_INET;
-        server_addr.sin_addr.s_addr = inet_addr(peer_ip.c_str());
-        server_addr.sin_port = htons(peer_port);
-
-        /*Bind*/
-        if(bind(server_socket, (struct sockaddr*)&server_addr, sizeof(server_addr)) == -1){
-            cout<<"Error while bind call"<<endl;
-            exit(0);
-        }
-
-        /*Listen*/
-        if(listen(server_socket, QUEUE) == -1){
-            cout<<"Error while listen syscall"<<endl;
-            exit(0);
-        }
-        cout<<"Welcome, Peer is online -----------------"<<endl;
-        unsigned int client_addr_length = sizeof(client_addr);
-        while(1){
-            client_socket = accept(server_socket, (struct sockaddr*)&client_addr, &client_addr_length);
-            pthread_t pid;
-            pthread_create(&pid,NULL,handle_client,(void*)&client_socket);
-            //if(pid==0) handle_client(client_socket);
-        }
-
-        close(server_socket);
         }
         else if(cmd_list[0] == "exit"){
             bzero(buffer,BUFFER);
