@@ -23,11 +23,52 @@ vector<string> cmd_list;
 vector<string> cmd_list_buffer;
 
 struct _download_it{
-    string ip,port;
+    string ip,port,dest_file_path,file_name;
 }_args;
 
+string getFileName(string filepath){
+  int pos = filepath.find_last_of('/');
+       if(pos!=string::npos){
+         return filepath.substr(pos+1);
+    }
+    return filepath;
+}
+
 void* download_it(void* args){
+    int s_sock_fd;
+    struct sockaddr_in s_serv;
+    char peer_buffer[BUFFER];
+
+    struct _download_it *temp_struct = (struct _download_it *)args; 
+
+    s_serv.sin_port=htons(stoi(temp_struct->port));
+    s_serv.sin_family=AF_INET;
+    s_serv.sin_addr.s_addr=inet_addr(temp_struct->ip.c_str());
     
+    s_sock_fd=socket(PF_INET,SOCK_STREAM,IPPROTO_TCP);
+    if(s_sock_fd == -1){
+        cout<<"Error while socket creation"<<endl;
+        
+    }
+
+    setsockopt(s_sock_fd,SOL_SOCKET,SO_REUSEADDR,&status,sizeof(int));
+
+    if(connect(s_sock_fd,(struct sockaddr*)&s_serv,sizeof(s_serv)) == -1){
+        perror(msg.c_str());
+        cout<<"Error while connect syscall"<<endl;
+        pthread_exit(NULL);
+    }
+
+    write(s_sock_fd,temp_struct->file_name.c_str(),temp_struct->file_name.size());
+
+    int dest,read_count;
+    dest = open(temp_struct->dest_file_path.c_str(), O_WRONLY|O_CREAT,S_IRUSR|S_IWUSR);
+            
+    while((read_count = read(s_sock_fd,peer_buffer,BUFFER))>0){
+        write(dest,peer_buffer,read_count);
+    }
+    close(s_sock_fd);
+    pthread_exit(NULL);
 }
 
 void split_command(string cmd_str){
@@ -71,19 +112,16 @@ void* handle_client(void *args){
     /*send and recv*/
     int client_socket=*((int*)args);
     char buffer[BUFFER];
-    string msg="";
-    char ch;
-    while(1){
-        bzero(buffer,BUFFER);
-        read(client_socket,&buffer,BUFFER);
-        //cout<<buffer<<endl;
-        msg=buffer;
-        cout<<msg<<endl;
-        fflush(stdout);
-        bzero(buffer, BUFFER);
-		fgets(buffer, BUFFER, stdin);
-        string input=buffer;
-        write(client_socket,input.c_str(),msg.size());
+    
+    read(client_socket,buffer,BUFFER);
+    string file_name=buffer;
+    string source_path="./"+file_name;
+    int read_count,source;
+
+    source = open(source_path.c_str(), O_RDONLY);
+
+    while((read_count = read(source,buffer,BUFFER))>0){
+        write(client_socket,buffer,read_count);
     }
     /*close socket*/
     close(client_socket);
@@ -328,6 +366,8 @@ int main(int argc,char *argv[]){
                     target_port = cmd_list_buffer[1];
                     _args.ip = target_ip;
                     _args.port = target_port;
+                    _args.dest_file_path = cmd_list[3];
+                    _args.file_name = cmd_list[2];
                     pthread_t target_tid;
                     pthread_create(&target_tid, NULL, download_it, (void*)&_args);
                 }
