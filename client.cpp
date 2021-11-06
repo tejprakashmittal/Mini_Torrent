@@ -28,7 +28,7 @@ struct _download_it{
 
 string getFileName(string filepath){
   int pos = filepath.find_last_of('/');
-       if(pos!=string::npos){
+    if(pos!=string::npos){
          return filepath.substr(pos+1);
     }
     return filepath;
@@ -105,6 +105,39 @@ void parse_buffer(char buffer[]){
         }
         else
         cmd.push_back(buffer[i]);
+    }
+}
+
+bool validate_command(){
+    if(cmd_list[0] == "create_user" && cmd_list.size() == 3){
+        return true;
+    }
+    else if(cmd_list[0] == "login" && cmd_list.size() == 5){
+        return true;
+    }
+    else if(cmd_list[0] == "create_group" && cmd_list.size() == 3){
+        return true;
+    }
+    else if(cmd_list[0] == "join_group" && cmd_list.size() == 3){
+        return true;
+    }
+    else if(cmd_list[0] == "leave_group" && cmd_list.size() == 3){
+        return true;
+    }
+    else if(cmd_list[0] == "accept_request" && cmd_list.size() == 4){
+        return true;
+    }
+    else if(cmd_list[0] == "list_requests" && cmd_list.size() == 3){
+        return true;
+    }
+    else if(cmd_list[0] == "list_groups" && cmd_list.size() == 1){
+        return true;
+    }
+    else if(cmd_list[0] == "exit" or cmd_list[0] == "upload_file" or cmd_list[0] == "download_file"){
+        return true;
+    }
+    else{
+        return false;
     }
 }
 
@@ -244,97 +277,77 @@ int main(int argc,char *argv[]){
         string cmd = parse_cmd_list();
         //cout<<cmd;
         fflush(stdout);
-        write(skt,cmd.c_str(),cmd.size());
 
-        if(cmd_list[0] == "create_user"){
-            // string user_pass='#'+cmd_list[1]+'#'+cmd_list[2]+'#';
-            // write(skt,user_pass.c_str(),user_pass.size());
-            memset(buffer,'\0',BUFFER);
-            read(skt,buffer,BUFFER);
-            msg=buffer;
-            cout<<msg<<endl;
-            cmd_list.clear();
-        }
-        else if(cmd_list[0] == "login"){
-            //string uauth_nd_ip_port='#'+cmd_list[1]+'#'+cmd_list[2]+'#'+peer_ip+'#'+to_string(peer_port)+'#';
-            //write(skt,uauth_nd_ip_port.c_str(),uauth_nd_ip_port.size());
-            bzero(buffer, BUFFER);
-            read(skt,buffer,BUFFER);
-            msg=buffer;
-            cout<<msg<<endl;
-            logged_in = true;
-            user_id = cmd_list[1];
-            cmd_list.clear();
-        }
-        else if(cmd_list[0] == "create_group"){
+        if(validate_command()){
+            write(skt,cmd.c_str(),cmd.size());
 
-        }
-        else if(cmd_list[0] == "join_group"){
-            cout<<"---Request sent---"<<endl;
-            fflush(stdout);
-        }
-        else if(cmd_list[0] == "leave_group"){
-
-        }
-        else if(cmd_list[0] == "accept_request"){
-
-        }
-        else if(cmd_list[0] == "list_requests"){
-            cout<<"-----------------------------------------------------------------------------"<<endl;
-            bzero(buffer,BUFFER);
-            read(skt,buffer,BUFFER);
-            parse_buffer(buffer);
-            if(cmd_list_buffer.size() > 0){
-                for(auto itr:cmd_list_buffer)
-                {
-                    cout<<itr<<" ";
-                }
-                fflush(stdout);
-                cout<<endl;
+            if(cmd_list[0] == "create_user"){
+                // string user_pass='#'+cmd_list[1]+'#'+cmd_list[2]+'#';
+                // write(skt,user_pass.c_str(),user_pass.size());
+                memset(buffer,'\0',BUFFER);
+                read(skt,buffer,BUFFER);
+                msg=buffer;
+                cout<<msg<<endl;
+                cmd_list.clear();
             }
-            else{
-                cout<<"-----No pending requests-------"<<endl;
+            else if(cmd_list[0] == "login"){
+                //string uauth_nd_ip_port='#'+cmd_list[1]+'#'+cmd_list[2]+'#'+peer_ip+'#'+to_string(peer_port)+'#';
+                //write(skt,uauth_nd_ip_port.c_str(),uauth_nd_ip_port.size());
+                bzero(buffer, BUFFER);
+                read(skt,buffer,BUFFER);
+                msg=buffer;
+                cout<<msg<<endl;
+                logged_in = true;
+                user_id = cmd_list[1];
+                cmd_list.clear();
+            }
+            else if(cmd_list[0] == "create_group"){
+
+            }
+            else if(cmd_list[0] == "join_group"){
+                cout<<"---Request sent---"<<endl;
                 fflush(stdout);
             }
-        }
-        else if(cmd_list[0] == "list_groups"){
-            cout<<"-----------------------------------------------------------------------------"<<endl;
-            bzero(buffer, BUFFER);
-            read(skt,buffer,BUFFER);
-            parse_buffer(buffer);
+            else if(cmd_list[0] == "leave_group"){
 
-            if(cmd_list_buffer.size() > 0){
-                for(auto itr:cmd_list_buffer){
-                    cout<<itr<<" ";
-                }
-                cout<<endl;
             }
-            fflush(stdout);
-        }
-        else if(cmd_list[0] == "my_groups"){
-            cout<<"-----------------------------------------------------------------------------"<<endl;
-            bzero(buffer,BUFFER);
-            read(skt,buffer,BUFFER);
-            parse_buffer(buffer);
+            else if(cmd_list[0] == "accept_request"){
 
-            if(cmd_list_buffer.size() > 0){
-                for(auto itr:cmd_list_buffer){
-                    cout<<itr<<" ";
+            }
+            else if(cmd_list[0] == "list_requests"){
+                cout<<"-----------------------------------------------------------------------------"<<endl;
+                bzero(buffer,BUFFER);
+                read(skt,buffer,BUFFER);
+                parse_buffer(buffer);
+                if(cmd_list_buffer.size() > 0){
+                    for(auto itr:cmd_list_buffer)
+                    {
+                        cout<<itr<<" ";
+                    }
+                    fflush(stdout);
+                    cout<<endl;
+                }
+                else{
+                    cout<<"-----No pending requests-------"<<endl;
+                    fflush(stdout);
                 }
             }
-            else cout<<"---You are not the member of any group---";
-            cout<<endl;
-            fflush(stdout);
-        }
-        else if(cmd_list[0] == "upload_file"){
-            bzero(buffer,BUFFER);
-            read(skt,buffer,BUFFER);
-            cout<<buffer<<endl;
-            fflush(stdout);
-        }
-        else if(cmd_list[0] == "list_files"){
-            cout<<"-----------------------------------------------------------------------------"<<endl;
-            if(cmd_list.size() >= 2){
+            else if(cmd_list[0] == "list_groups"){
+                cout<<"-----------------------------------------------------------------------------"<<endl;
+                bzero(buffer, BUFFER);
+                read(skt,buffer,BUFFER);
+                parse_buffer(buffer);
+
+                if(cmd_list_buffer.size() > 0){
+                    for(auto itr:cmd_list_buffer){
+                        cout<<itr<<" ";
+                    }
+                    cout<<endl;
+                }
+                fflush(stdout);
+            }
+            else if(cmd_list[0] == "my_groups"){
+                cout<<"-----------------------------------------------------------------------------"<<endl;
                 bzero(buffer,BUFFER);
                 read(skt,buffer,BUFFER);
                 parse_buffer(buffer);
@@ -344,121 +357,146 @@ int main(int argc,char *argv[]){
                         cout<<itr<<" ";
                     }
                 }
-                else cout<<"---No files under requested group---";
+                else cout<<"---You are not the member of any group---";
+                cout<<endl;
+                fflush(stdout);
             }
-            else{
-                cout<<"---Invalid Command---";
+            else if(cmd_list[0] == "upload_file"){
+                bzero(buffer,BUFFER);
+                read(skt,buffer,BUFFER);
+                cout<<buffer<<endl;
+                fflush(stdout);
             }
-            cout<<endl;
-            fflush(stdout);
-        }
-        else if(cmd_list[0] == "download_file"){
-            if(cmd_list.size() >= 4){
+            else if(cmd_list[0] == "list_files"){
+                cout<<"-----------------------------------------------------------------------------"<<endl;
+                if(cmd_list.size() >= 2){
+                    bzero(buffer,BUFFER);
+                    read(skt,buffer,BUFFER);
+                    parse_buffer(buffer);
+
+                    if(cmd_list_buffer.size() > 0){
+                        for(auto itr:cmd_list_buffer){
+                            cout<<itr<<" ";
+                        }
+                    }
+                    else cout<<"---No files under requested group---";
+                }
+                else{
+                    cout<<"---Invalid Command---";
+                }
+                cout<<endl;
+                fflush(stdout);
+            }
+            else if(cmd_list[0] == "download_file"){
+                if(cmd_list.size() >= 4){
+                    bzero(buffer,BUFFER);
+                    read(skt,buffer,BUFFER);
+                    parse_buffer(buffer);
+                    string target_ip,target_port;
+                    if(cmd_list_buffer.size() > 0){
+                        // for(auto itr:cmd_list_buffer){
+                        //     cout<<itr<<" ";
+                        // }
+                        target_ip = cmd_list_buffer[0];
+                        target_port = cmd_list_buffer[1];
+                        _args.ip = target_ip;
+                        _args.port = target_port;
+                        _args.dest_file_path = cmd_list[3];
+                        _args.file_name = cmd_list[2];
+                        pthread_t target_tid;
+                        pthread_create(&target_tid, NULL, download_it, (void*)&_args);
+                    }
+                    else cout<<"---File is not available to download---";
+                }
+                else cout<<"---Invalid Command---";
+                cout<<endl;
+                fflush(stdout);
+            }
+            else if(cmd_list[0] == "file_upload"){
+                int read_count,source;
+                string source_path="./AOS_Assignment3.pdf";
+                source = open(source_path.c_str(), O_RDONLY);
+
+                while((read_count = read(source,buffer,BUFFER))>0){
+                    write(skt,buffer,read_count);
+                }
+            }
+            else if(cmd_list[0] == "file_download"){
+                read(skt,buffer,BUFFER);
+                msg=buffer;
+                cout<<msg;
+                string file_name;
+                cin>>file_name;
+                write(skt,file_name.c_str(),file_name.size());
+
+                int dest,read_count;
+                string dest_full_path="./"+file_name;
+                dest = open(dest_full_path.c_str(), O_WRONLY|O_CREAT,S_IRUSR|S_IWUSR);
+                
+                while((read_count = read(skt,buffer,BUFFER))>0){
+                    write(dest,buffer,read_count);
+                }
+            }
+            else if(cmd_list[0] == "client"){
+                struct sockaddr_in peer;
+                char peer_buffer[BUFFER];
+
+                bzero(peer_buffer,BUFFER);
+                read(skt,peer_buffer,BUFFER);
+                parse_buffer(peer_buffer);
+                
+                peer.sin_port=htons(toInt(cmd_list_buffer[1]));
+                peer.sin_family=AF_INET;
+                peer.sin_addr.s_addr=inet_addr(cmd_list_buffer[0].c_str());
+                memset(buffer,'\0',BUFFER);
+
+                int peer_skt=socket(PF_INET,SOCK_STREAM,IPPROTO_TCP);
+                if(peer_skt == -1){
+                    cout<<"Error while socket creation"<<endl;
+                    exit(0);
+                }
+                setsockopt(peer_skt,SOL_SOCKET,SO_REUSEADDR,&status,sizeof(int));
+                if(connect(peer_skt,(struct sockaddr*)&peer,sizeof(peer)) == -1){
+                    perror(msg.c_str());
+                    cout<<"Error while connect syscall"<<endl;
+                    exit(0);
+                }
+                string peer_msg;
+                cout<<"Start conversation with your peer -----------"<<endl;
+                while(1){
+                    bzero(peer_buffer, BUFFER);
+                    fgets(peer_buffer, BUFFER, stdin);
+                    peer_msg=peer_buffer;
+
+                    if(peer_msg == "exit") break;
+
+                    write(peer_skt,peer_msg.c_str(),peer_msg.size());
+
+                    bzero(peer_buffer, BUFFER);
+                    read(peer_skt,&peer_buffer,BUFFER);
+
+                    peer_msg=peer_buffer;
+                    cout<<peer_msg<<endl;
+                    fflush(stdout);
+                }        
+                close(peer_skt);
+            }
+            else if(cmd_list[0] == "exit"){
                 bzero(buffer,BUFFER);
                 read(skt,buffer,BUFFER);
                 parse_buffer(buffer);
-                string target_ip,target_port;
-                if(cmd_list_buffer.size() > 0){
-                    // for(auto itr:cmd_list_buffer){
-                    //     cout<<itr<<" ";
-                    // }
-                    target_ip = cmd_list_buffer[0];
-                    target_port = cmd_list_buffer[1];
-                    _args.ip = target_ip;
-                    _args.port = target_port;
-                    _args.dest_file_path = cmd_list[3];
-                    _args.file_name = cmd_list[2];
-                    pthread_t target_tid;
-                    pthread_create(&target_tid, NULL, download_it, (void*)&_args);
+                //cout<<cmd_list_buffer[0]<<endl;
+                if(cmd_list_buffer[0] == "close"){
+                    shutdown(skt,SHUT_RDWR);
+                    close(skt);
                 }
-                else cout<<"---File is not available to download---";
             }
-            else cout<<"---Invalid Command---";
-            cout<<endl;
-            fflush(stdout);
-        }
-        else if(cmd_list[0] == "file_upload"){
-            int read_count,source;
-            string source_path="./AOS_Assignment3.pdf";
-            source = open(source_path.c_str(), O_RDONLY);
-
-            while((read_count = read(source,buffer,BUFFER))>0){
-                write(skt,buffer,read_count);
+            else{
+                cout<<"Invalid Command"<<endl;
             }
         }
-        else if(cmd_list[0] == "file_download"){
-            read(skt,buffer,BUFFER);
-            msg=buffer;
-            cout<<msg;
-            string file_name;
-            cin>>file_name;
-            write(skt,file_name.c_str(),file_name.size());
-
-            int dest,read_count;
-            string dest_full_path="./"+file_name;
-            dest = open(dest_full_path.c_str(), O_WRONLY|O_CREAT,S_IRUSR|S_IWUSR);
-            
-            while((read_count = read(skt,buffer,BUFFER))>0){
-                write(dest,buffer,read_count);
-            }
-        }
-        else if(cmd_list[0] == "client"){
-            struct sockaddr_in peer;
-            char peer_buffer[BUFFER];
-
-            bzero(peer_buffer,BUFFER);
-            read(skt,peer_buffer,BUFFER);
-            parse_buffer(peer_buffer);
-            
-            peer.sin_port=htons(toInt(cmd_list_buffer[1]));
-            peer.sin_family=AF_INET;
-            peer.sin_addr.s_addr=inet_addr(cmd_list_buffer[0].c_str());
-            memset(buffer,'\0',BUFFER);
-
-            int peer_skt=socket(PF_INET,SOCK_STREAM,IPPROTO_TCP);
-            if(peer_skt == -1){
-                cout<<"Error while socket creation"<<endl;
-                exit(0);
-            }
-            setsockopt(peer_skt,SOL_SOCKET,SO_REUSEADDR,&status,sizeof(int));
-            if(connect(peer_skt,(struct sockaddr*)&peer,sizeof(peer)) == -1){
-                perror(msg.c_str());
-                cout<<"Error while connect syscall"<<endl;
-                exit(0);
-            }
-            string peer_msg;
-            cout<<"Start conversation with your peer -----------"<<endl;
-            while(1){
-                bzero(peer_buffer, BUFFER);
-		        fgets(peer_buffer, BUFFER, stdin);
-                peer_msg=peer_buffer;
-
-                if(peer_msg == "exit") break;
-
-                write(peer_skt,peer_msg.c_str(),peer_msg.size());
-
-                bzero(peer_buffer, BUFFER);
-                read(peer_skt,&peer_buffer,BUFFER);
-
-                peer_msg=peer_buffer;
-                cout<<peer_msg<<endl;
-                fflush(stdout);
-            }        
-            close(peer_skt);
-        }
-        else if(cmd_list[0] == "server"){
-
-        }
-        else if(cmd_list[0] == "exit"){
-            bzero(buffer,BUFFER);
-            read(skt,buffer,BUFFER);
-            parse_buffer(buffer);
-            //cout<<cmd_list_buffer[0]<<endl;
-            if(cmd_list_buffer[0] == "close"){
-                shutdown(skt,SHUT_RDWR);
-                close(skt);
-            }
-        }
+        else cout<<"Invalid Command"<<endl;
+        fflush(stdout);
     }
     close(skt);
     return 0;
