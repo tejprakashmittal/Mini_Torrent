@@ -1,13 +1,15 @@
 #include<iostream>
+#include<cmath>
 #include<string.h>
 #include<vector>
 #include <fcntl.h>
 #include<sstream>
 #include<sys/socket.h>
+#include<sys/wait.h>
 #include<arpa/inet.h>
 #include<unistd.h>
-#define BUFFER 1024
-#define QUEUE 2
+#define BUFFER 8192
+#define QUEUE 10
 using namespace std;
 
 int peer_port;
@@ -17,14 +19,16 @@ string user_id;
 string msg="";
 bool logged_in=false;
 
-char buffer[BUFFER];
-
+//char buffer[BUFFER];
+pthread_mutex_t lock;
 vector<string> cmd_list;
-vector<string> cmd_list_buffer;
+
+vector<string> parse_buffer(char buffer[]);
 
 struct _download_it{
     string ip,port,dest_file_path,file_name;
-}_args;
+    int start_chunk_index,end_chunk_index;
+};  //_args
 
 string getFileName(string filepath){
   int pos = filepath.find_last_of('/');
@@ -35,6 +39,9 @@ string getFileName(string filepath){
 }
 
 void* download_it(void* args){
+    pthread_mutex_lock(&lock);
+    vector<string> cmd_list_buffer;
+    vector<string> thread_args;
     int s_sock_fd;
     struct sockaddr_in s_serv;
     char peer_buffer[BUFFER];
@@ -59,16 +66,49 @@ void* download_it(void* args){
         pthread_exit(NULL);
     }
 
-    write(s_sock_fd,temp_struct->file_name.c_str(),temp_struct->file_name.size());
-
-    int dest,read_count;
-    dest = open(temp_struct->dest_file_path.c_str(), O_WRONLY|O_CREAT,S_IRUSR|S_IWUSR);
+    int start_chunk = temp_struct->start_chunk_index;
+    int end_chunk = temp_struct->end_chunk_index;
+    FILE *fp;
+    while(start_chunk <= end_chunk)
+        {
+            string file_name_with_chunk = '#'+ temp_struct->file_name + '#' + to_string(start_chunk)+'#';
+            write(s_sock_fd,file_name_with_chunk.c_str(),file_name_with_chunk.size());
             
-    while((read_count = read(s_sock_fd,peer_buffer,BUFFER))>0){
-        write(dest,peer_buffer,read_count);
+            string dest = temp_struct->dest_file_path + to_string(start_chunk)+".dat";
+            fp = fopen(dest.c_str(),"w");
+            bzero(peer_buffer,BUFFER);
+            int read_count = read(s_sock_fd,peer_buffer,BUFFER);
+            fwrite(peer_buffer,sizeof(char),read_count,fp);
+            // int dest,read_count;
+            // dest = open(temp_struct->dest_file_path.c_str(), O_WRONLY|O_CREAT,S_IRUSR|S_IWUSR);
+                    
+            // while((read_count = read(s_sock_fd,peer_buffer,BUFFER))>0){
+            //     write(dest,peer_buffer,read_count);
+            start_chunk++;
+            fclose(fp);
+        }
+    string exit_cmd = "#exit#";
+    write(s_sock_fd,exit_cmd.c_str(),exit_cmd.size());
+    bzero(peer_buffer,BUFFER);
+    read(s_sock_fd,peer_buffer,BUFFER);
+    cmd_list_buffer = parse_buffer(peer_buffer);
+                //cout<<cmd_list_buffer[0]<<endl;
+    if(cmd_list_buffer[0] == "close"){
+        shutdown(s_sock_fd,SHUT_RDWR);
+        close(s_sock_fd);
     }
-    close(s_sock_fd);
-    pthread_exit(NULL);
+    else{
+        sleep(1);
+        cout<<"Lost"<<endl;
+        //close(s_sock_fd);
+    }
+    pthread_mutex_unlock(&lock);
+    return NULL;
+    //pthread_exit(NULL);
+}
+
+void* merge_it(void* args){
+
 }
 
 void split_command(string cmd_str){
@@ -95,8 +135,8 @@ string parse_cmd_list(){
     return cmd;
 }
 
-void parse_buffer(char buffer[]){
-    cmd_list_buffer.clear();
+vector<string> parse_buffer(char buffer[]){
+    vector<string> cmd_list_buffer;
     string cmd="";
     for(int i=1;i<BUFFER && buffer[i]!='\0';i++){
         if(buffer[i]=='#'){
@@ -106,6 +146,17 @@ void parse_buffer(char buffer[]){
         else
         cmd.push_back(buffer[i]);
     }
+    return cmd_list_buffer;
+}
+
+int chunkCount(string filepath){
+    FILE *fp;
+    fp = fopen(filepath.c_str(),"r");
+    fseek(fp,0,SEEK_END);
+    double fsize = ftell(fp);
+    int chunks = ceil(fsize/BUFFER);
+    fclose(fp);
+    return chunks;
 }
 
 bool validate_command(){
@@ -133,7 +184,7 @@ bool validate_command(){
     else if(cmd_list[0] == "list_groups" && cmd_list.size() == 1){
         return true;
     }
-    else if(cmd_list[0] == "exit" or cmd_list[0] == "upload_file" or cmd_list[0] == "download_file"){
+    else if(cmd_list[0] == "exit" or cmd_list[0] == "list_files" or cmd_list[0] == "upload_file" or cmd_list[0] == "download_file"){
         return true;
     }
     else{
@@ -145,23 +196,67 @@ void* handle_client(void *args){
     /*send and recv*/
     int client_socket=*((int*)args);
     char buffer[BUFFER];
+    vector<string> cmd_list_buffer;
     
-    read(client_socket,buffer,BUFFER);
-    string file_name=buffer;
-    string source_path="./"+file_name;
-    int read_count,source;
+    while(1)
+    {
+        cmd_list_buffer.clear();
+        bzero(buffer,BUFFER);
+        read(client_socket,buffer,BUFFER);
+        cmd_list_buffer = parse_buffer(buffer);
 
-    source = open(source_path.c_str(), O_RDONLY);
+        if(cmd_list_buffer[0] == "exit"){
+            msg = "#close#";
+            write(client_socket,msg.c_str(),msg.size());
+            shutdown(client_socket,SHUT_RDWR);
+            close(client_socket);
+            pthread_exit(NULL);
+            //shutdown(client_socket,SHUT_RDWR);
+        }
 
-    while((read_count = read(source,buffer,BUFFER))>0){
-        write(client_socket,buffer,read_count);
+        string file_name=cmd_list_buffer[0];
+        int chunk_no = atoi(cmd_list_buffer[1].c_str());
+        cout<<"chunk no : "<<chunk_no<<endl;
+        fflush(stdout);
+        string source_path="./"+file_name;
+
+        FILE *fp;
+        fp = fopen(source_path.c_str(),"r");
+        fseek(fp,0,SEEK_SET);
+        fseek(fp,0,SEEK_END);
+        double fsize = ftell(fp);
+        int total_chunks = ceil(fsize/BUFFER);
+
+        fseek(fp,chunk_no*BUFFER,SEEK_SET);
+        bzero(buffer,BUFFER);
+        if(chunk_no < total_chunks-1){
+            fread(buffer, sizeof(char), BUFFER, fp);
+            write(client_socket,buffer,BUFFER);
+        }
+        else{
+            int buf_size = fsize - (total_chunks-1)*BUFFER;
+            fread(buffer, sizeof(char), buf_size, fp);
+            write(client_socket,buffer,buf_size);
+            cout<<"Last Chunk"<<endl;
+            fflush(stdout);
+        }
+        fclose(fp);
     }
-    /*close socket*/
-    close(client_socket);
-    pthread_exit(NULL);
+
+    // int read_count,source;
+
+    // source = open(source_path.c_str(), O_RDONLY);
+
+    // while((read_count = read(source,buffer,BUFFER))>0){
+    //     write(client_socket,buffer,read_count);
+    // }
+    /*close file and socket*/
+    //close(client_socket);
+    //pthread_exit(NULL);
 }
 
 int init_client_mode(){
+    char buffer[BUFFER];
     struct sockaddr_in server_addr;
     server_addr.sin_family=AF_INET;
     server_addr.sin_addr.s_addr=inet_addr("127.0.0.1");
@@ -233,7 +328,8 @@ void* init_server_mode(void* args){
 }
 
 int main(int argc,char *argv[]){
-
+    vector<string> cmd_list_buffer;
+    char buffer[BUFFER];
     peer_ip=argv[1];
     peer_port=atoi(argv[2]);
     
@@ -279,6 +375,12 @@ int main(int argc,char *argv[]){
         fflush(stdout);
 
         if(validate_command()){
+
+            if(cmd_list[0] == "upload_file"){
+                int chunks = chunkCount(cmd_list[1]);
+                cmd+=to_string(chunks)+'#';
+            }
+
             write(skt,cmd.c_str(),cmd.size());
 
             if(cmd_list[0] == "create_user"){
@@ -318,7 +420,7 @@ int main(int argc,char *argv[]){
                 cout<<"-----------------------------------------------------------------------------"<<endl;
                 bzero(buffer,BUFFER);
                 read(skt,buffer,BUFFER);
-                parse_buffer(buffer);
+                cmd_list_buffer = parse_buffer(buffer);
                 if(cmd_list_buffer.size() > 0){
                     for(auto itr:cmd_list_buffer)
                     {
@@ -336,7 +438,7 @@ int main(int argc,char *argv[]){
                 cout<<"-----------------------------------------------------------------------------"<<endl;
                 bzero(buffer, BUFFER);
                 read(skt,buffer,BUFFER);
-                parse_buffer(buffer);
+                cmd_list_buffer = parse_buffer(buffer);
 
                 if(cmd_list_buffer.size() > 0){
                     for(auto itr:cmd_list_buffer){
@@ -350,7 +452,7 @@ int main(int argc,char *argv[]){
                 cout<<"-----------------------------------------------------------------------------"<<endl;
                 bzero(buffer,BUFFER);
                 read(skt,buffer,BUFFER);
-                parse_buffer(buffer);
+                cmd_list_buffer = parse_buffer(buffer);
 
                 if(cmd_list_buffer.size() > 0){
                     for(auto itr:cmd_list_buffer){
@@ -372,7 +474,7 @@ int main(int argc,char *argv[]){
                 if(cmd_list.size() >= 2){
                     bzero(buffer,BUFFER);
                     read(skt,buffer,BUFFER);
-                    parse_buffer(buffer);
+                    cmd_list_buffer = parse_buffer(buffer);
 
                     if(cmd_list_buffer.size() > 0){
                         for(auto itr:cmd_list_buffer){
@@ -389,22 +491,52 @@ int main(int argc,char *argv[]){
             }
             else if(cmd_list[0] == "download_file"){
                 if(cmd_list.size() >= 4){
-                    bzero(buffer,BUFFER);
-                    read(skt,buffer,BUFFER);
-                    parse_buffer(buffer);
-                    string target_ip,target_port;
+                    char buff[BUFFER];
+                    bzero(buff,BUFFER);
+                    read(skt,buff,BUFFER);
+                    cmd_list_buffer = parse_buffer(buff);
                     if(cmd_list_buffer.size() > 0){
                         // for(auto itr:cmd_list_buffer){
                         //     cout<<itr<<" ";
                         // }
-                        target_ip = cmd_list_buffer[0];
-                        target_port = cmd_list_buffer[1];
-                        _args.ip = target_ip;
-                        _args.port = target_port;
-                        _args.dest_file_path = cmd_list[3];
-                        _args.file_name = cmd_list[2];
-                        pthread_t target_tid;
-                        pthread_create(&target_tid, NULL, download_it, (void*)&_args);
+                        //cout<<cmd_list_buffer.size()<<endl;
+                        //fflush(stdout);
+                        double chunk_count = stoi(cmd_list_buffer[cmd_list_buffer.size()-1]);
+                        int peers_count = (cmd_list_buffer.size()-1)/2;
+                        cout<<"Number of peers -> "<<peers_count<<endl;
+                        vector<int> chunk_map(chunk_count,0);
+
+                        int chunk_per_peer = ceil(chunk_count/peers_count);
+
+                        int i=0,j=0,k=0;
+                        struct _download_it _args[peers_count];
+                        pthread_t target_tid[50];
+                        while(i < chunk_count && j < cmd_list_buffer.size()-2){
+                            if (pthread_mutex_init(&lock, NULL) != 0) {
+                                printf("\n mutex init has failed\n");
+                            }
+                            cout<<"This is value of i : "<<i<<endl;
+
+                            _args[k].dest_file_path = cmd_list[3];
+                            _args[k].file_name = cmd_list[2];
+                            _args[k].ip = cmd_list_buffer[j];
+                            _args[k].port = cmd_list_buffer[++j];
+                            _args[k].start_chunk_index = i;
+                            _args[k].end_chunk_index = i + chunk_per_peer - 1;
+
+                            while(_args[k].end_chunk_index >= chunk_count) _args[k].end_chunk_index--;
+
+                            pthread_create(&target_tid[j], NULL, download_it, (void*)&_args[k]);
+                            //pthread_join(target_tid[j],NULL);
+                            // pid_t pid = fork();
+                            // if(pid == 0) download_it((void*)&_args);
+                            // wait(NULL);
+                            i = i + chunk_per_peer;
+                            j++,k++;
+                        }
+                        pthread_join(target_tid[j-1],NULL);
+                        pthread_mutex_destroy(&lock);
+                        pthread_create(&target_tid[j], NULL, merge_it, NULL);
                     }
                     else cout<<"---File is not available to download---";
                 }
@@ -443,7 +575,7 @@ int main(int argc,char *argv[]){
 
                 bzero(peer_buffer,BUFFER);
                 read(skt,peer_buffer,BUFFER);
-                parse_buffer(peer_buffer);
+                cmd_list_buffer = parse_buffer(peer_buffer);
                 
                 peer.sin_port=htons(toInt(cmd_list_buffer[1]));
                 peer.sin_family=AF_INET;
@@ -484,7 +616,7 @@ int main(int argc,char *argv[]){
             else if(cmd_list[0] == "exit"){
                 bzero(buffer,BUFFER);
                 read(skt,buffer,BUFFER);
-                parse_buffer(buffer);
+                cmd_list_buffer = parse_buffer(buffer);
                 //cout<<cmd_list_buffer[0]<<endl;
                 if(cmd_list_buffer[0] == "close"){
                     shutdown(skt,SHUT_RDWR);
