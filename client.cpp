@@ -30,6 +30,11 @@ struct _download_it{
     int start_chunk_index,end_chunk_index;
 };  //_args
 
+struct _merge_it{
+    string dest_file_path,file_name;
+    int start_chunk_index,end_chunk_index;
+};
+
 string getFileName(string filepath){
   int pos = filepath.find_last_of('/');
     if(pos!=string::npos){
@@ -82,7 +87,9 @@ void* download_it(void* args){
             while(cnts > 0)
             {
                 int read_count = read(s_sock_fd,peer_buffer,BUFFER);
+                //cout<<"Read_Count : "<<read_count<<endl;
                 fwrite(peer_buffer,sizeof(char),read_count,fp);
+                cout<<read_count<<endl;
                 if(read_count < BUFFER) break;
                 cnts--;
             }
@@ -115,7 +122,12 @@ void* download_it(void* args){
 }
 
 void* merge_it(void* args){
-
+    // FILE *fp;
+    // struct _merge_it *temp_struct = (struct _merge_it *)args; 
+    // string filepath = temp_struct->dest_file_path + temp_struct->file_name;
+    // fp = fopen(filepath.c_str(), "w");
+    // //for(int i=0;i<temp_struct.)
+    // fclose(fp);
 }
 
 void split_command(string cmd_str){
@@ -234,7 +246,7 @@ void* handle_client(void *args){
         double fsize = ftell(fp);
         int total_chunks = ceil(fsize/524288);
 
-        fseek(fp,chunk_no*BUFFER,SEEK_SET);
+        fseek(fp,chunk_no*524288,SEEK_SET);
         bzero(buffer,BUFFER);
         if(chunk_no < total_chunks-1){
             int cnts = 512;
@@ -245,13 +257,19 @@ void* handle_client(void *args){
             }
         }
         else{
+            fseek(fp,(total_chunks-1)*524288,SEEK_SET);
             int buf_size = fsize - (total_chunks-1)*524288;
-            double _buf_size = buf_size;
-            int cnts = ceil(_buf_size/BUFFER);
+            //double _buf_size = buf_size;
+            int cnts = buf_size/BUFFER;
+            int rem = buf_size - cnts*BUFFER;
             while(cnts > 0){
                 fread(buffer, sizeof(char), BUFFER, fp);
                 write(client_socket,buffer,BUFFER);
                 cnts--;
+            }
+            if(rem > 0){
+                fread(buffer, sizeof(char), rem, fp);
+                write(client_socket,buffer,rem);
             }
             cout<<"Last Chunk"<<endl;
             fflush(stdout);
@@ -267,8 +285,8 @@ void* handle_client(void *args){
     //     write(client_socket,buffer,read_count);
     // }
     /*close file and socket*/
-    //close(client_socket);
-    //pthread_exit(NULL);
+    close(client_socket);
+    pthread_exit(NULL);
 }
 
 int init_client_mode(){
@@ -552,7 +570,12 @@ int main(int argc,char *argv[]){
                         }
                         pthread_join(target_tid[j-1],NULL);
                         pthread_mutex_destroy(&lock);
-                        pthread_create(&target_tid[j], NULL, merge_it, NULL);
+                        struct _merge_it ptr;
+                        ptr.file_name = cmd_list[2];
+                        ptr.dest_file_path = cmd_list[3];
+                        ptr.start_chunk_index = 0;
+                        ptr.end_chunk_index = chunk_count -1;
+                        pthread_create(&target_tid[j], NULL, merge_it, (void*)&ptr);
                     }
                     else cout<<"---File is not available to download---";
                 }
