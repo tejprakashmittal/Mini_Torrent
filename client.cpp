@@ -8,7 +8,7 @@
 #include<sys/wait.h>
 #include<arpa/inet.h>
 #include<unistd.h>
-#define BUFFER 8192
+#define BUFFER 1024
 #define QUEUE 10
 using namespace std;
 
@@ -77,8 +77,15 @@ void* download_it(void* args){
             string dest = temp_struct->dest_file_path + to_string(start_chunk)+".dat";
             fp = fopen(dest.c_str(),"w");
             bzero(peer_buffer,BUFFER);
-            int read_count = read(s_sock_fd,peer_buffer,BUFFER);
-            fwrite(peer_buffer,sizeof(char),read_count,fp);
+
+            int cnts = 512;
+            while(cnts > 0)
+            {
+                int read_count = read(s_sock_fd,peer_buffer,BUFFER);
+                fwrite(peer_buffer,sizeof(char),read_count,fp);
+                if(read_count < BUFFER) break;
+                cnts--;
+            }
             // int dest,read_count;
             // dest = open(temp_struct->dest_file_path.c_str(), O_WRONLY|O_CREAT,S_IRUSR|S_IWUSR);
                     
@@ -154,7 +161,7 @@ int chunkCount(string filepath){
     fp = fopen(filepath.c_str(),"r");
     fseek(fp,0,SEEK_END);
     double fsize = ftell(fp);
-    int chunks = ceil(fsize/BUFFER);
+    int chunks = ceil(fsize/524288);
     fclose(fp);
     return chunks;
 }
@@ -225,18 +232,27 @@ void* handle_client(void *args){
         fseek(fp,0,SEEK_SET);
         fseek(fp,0,SEEK_END);
         double fsize = ftell(fp);
-        int total_chunks = ceil(fsize/BUFFER);
+        int total_chunks = ceil(fsize/524288);
 
         fseek(fp,chunk_no*BUFFER,SEEK_SET);
         bzero(buffer,BUFFER);
         if(chunk_no < total_chunks-1){
-            fread(buffer, sizeof(char), BUFFER, fp);
-            write(client_socket,buffer,BUFFER);
+            int cnts = 512;
+            while(cnts > 0){
+                fread(buffer, sizeof(char), BUFFER, fp);
+                write(client_socket,buffer,BUFFER);
+                cnts--;
+            }
         }
         else{
-            int buf_size = fsize - (total_chunks-1)*BUFFER;
-            fread(buffer, sizeof(char), buf_size, fp);
-            write(client_socket,buffer,buf_size);
+            int buf_size = fsize - (total_chunks-1)*524288;
+            double _buf_size = buf_size;
+            int cnts = ceil(_buf_size/BUFFER);
+            while(cnts > 0){
+                fread(buffer, sizeof(char), BUFFER, fp);
+                write(client_socket,buffer,BUFFER);
+                cnts--;
+            }
             cout<<"Last Chunk"<<endl;
             fflush(stdout);
         }
