@@ -32,7 +32,7 @@ struct _download_it{
 
 struct _merge_it{
     string dest_file_path,file_name;
-    int start_chunk_index,end_chunk_index;
+    int start_chunk_index,end_chunk_index,chunk_count;
 };
 
 string getFileName(string filepath){
@@ -89,7 +89,7 @@ void* download_it(void* args){
                 int read_count = read(s_sock_fd,peer_buffer,BUFFER);
                 //cout<<"Read_Count : "<<read_count<<endl;
                 fwrite(peer_buffer,sizeof(char),read_count,fp);
-                cout<<read_count<<endl;
+                //cout<<read_count<<endl;
                 if(read_count < BUFFER) break;
                 cnts--;
             }
@@ -122,12 +122,24 @@ void* download_it(void* args){
 }
 
 void* merge_it(void* args){
-    // FILE *fp;
-    // struct _merge_it *temp_struct = (struct _merge_it *)args; 
-    // string filepath = temp_struct->dest_file_path + temp_struct->file_name;
-    // fp = fopen(filepath.c_str(), "w");
-    // //for(int i=0;i<temp_struct.)
-    // fclose(fp);
+    FILE *fp,*_file;
+    struct _merge_it *temp_struct = (struct _merge_it *)args; 
+    string filepath = temp_struct->dest_file_path + temp_struct->file_name;
+    fp = fopen(filepath.c_str(), "w");
+    for(int i=0;i<temp_struct->chunk_count;i++){
+        string fpath = temp_struct->dest_file_path + to_string(i) +".dat";
+        _file = fopen(fpath.c_str(),"r");
+        fseek(_file,0,SEEK_END);
+        int chunk_size = ftell(_file);
+        fseek(_file,0,SEEK_SET);
+        char buff[chunk_size];
+        bzero(buff,chunk_size);
+        fread(buff,sizeof(char),chunk_size,_file);
+        fwrite(buff,sizeof(char),chunk_size,fp);
+        fclose(_file);
+    }
+    fclose(fp);
+    return NULL;
 }
 
 void split_command(string cmd_str){
@@ -575,6 +587,7 @@ int main(int argc,char *argv[]){
                         ptr.dest_file_path = cmd_list[3];
                         ptr.start_chunk_index = 0;
                         ptr.end_chunk_index = chunk_count -1;
+                        ptr.chunk_count = chunk_count;
                         pthread_create(&target_tid[j], NULL, merge_it, (void*)&ptr);
                     }
                     else cout<<"---File is not available to download---";
