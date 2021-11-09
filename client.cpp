@@ -1,4 +1,6 @@
 #include<iostream>
+#include <stdlib.h>
+#include<unordered_map>
 #include<cmath>
 #include<string.h>
 #include<vector>
@@ -22,7 +24,7 @@ bool logged_in=false;
 //char buffer[BUFFER];
 pthread_mutex_t lock;
 vector<string> cmd_list;
-
+unordered_map<string,vector<int>> file_chunk_count;
 vector<string> parse_buffer(char buffer[]);
 
 struct _download_it{
@@ -43,7 +45,41 @@ string getFileName(string filepath){
     return filepath;
 }
 
+string get_bitmap(string ip,string port,string filename){
+    /*Make the connetion to the peer of ip and port
+    send success message along with filename
+    receive the bitmap string in buffer
+    parse the buffer int the vector
+    return parsed chunk-sized bitmap string
+    */
+    int s_sock_fd;
+    char buff[BUFFER];
+    struct sockaddr_in s_serv;
+    vector<string> cmd_list_buffer;
+    s_serv.sin_port=htons(stoi(port));
+    s_serv.sin_family=AF_INET;
+    s_serv.sin_addr.s_addr=inet_addr(ip.c_str());
+    
+    s_sock_fd=socket(PF_INET,SOCK_STREAM,IPPROTO_TCP);
+    if(s_sock_fd == -1){
+        cout<<"Error while socket creation"<<endl; 
+    }
+    setsockopt(s_sock_fd,SOL_SOCKET,SO_REUSEADDR,&status,sizeof(int));
+    if(connect(s_sock_fd,(struct sockaddr*)&s_serv,sizeof(s_serv)) == -1){
+        perror(msg.c_str());
+        cout<<"Error while connect syscall"<<endl;
+        return "";
+    }
+    string temp_msg="#bitmap#" + filename +'#';
+    write(s_sock_fd,temp_msg.c_str(),temp_msg.size());
+    read(s_sock_fd,buff,BUFFER);
+    cmd_list_buffer = parse_buffer(buff);
+    cout<<cmd_list_buffer[0]<<endl;
+    return cmd_list_buffer[0];
+}
+
 void* download_it(void* args){
+    cout<<"fourth"<<endl;
     pthread_mutex_lock(&lock);
     vector<string> cmd_list_buffer;
     vector<string> thread_args;
@@ -52,11 +88,11 @@ void* download_it(void* args){
     char peer_buffer[BUFFER];
 
     struct _download_it *temp_struct = (struct _download_it *)args; 
-
+cout<<"fifth"<<endl;
     s_serv.sin_port=htons(stoi(temp_struct->port));
     s_serv.sin_family=AF_INET;
     s_serv.sin_addr.s_addr=inet_addr(temp_struct->ip.c_str());
-    
+    cout<<"six"<<endl;
     s_sock_fd=socket(PF_INET,SOCK_STREAM,IPPROTO_TCP);
     if(s_sock_fd == -1){
         cout<<"Error while socket creation"<<endl;
@@ -70,16 +106,37 @@ void* download_it(void* args){
         cout<<"Error while connect syscall"<<endl;
         pthread_exit(NULL);
     }
+    cout<<"After connect "<<endl;
+/*
+send download message and receive success message then start downlaoding the required chunk
+handlclient_method also needs to be modified to donload only required chunk
+*/
+    string temp_msg="#download#";
+    write(s_sock_fd,temp_msg.c_str(),temp_msg.size());
+    bzero(peer_buffer,BUFFER);
+    read(s_sock_fd,peer_buffer,BUFFER);
+    cmd_list_buffer.clear();
+    cmd_list_buffer = parse_buffer(peer_buffer);
+    cout<<"seven"<<endl;
+    fflush(stdout);
+    cout<<"cmd list size "<<cmd_list_buffer.size()<<endl;
+    if(cmd_list_buffer[0] != "success"){
+        cout<<"Error while downloading chunk"<<endl;
+        fflush(stdout);
+        close(s_sock_fd);
+        pthread_exit(NULL);
+    }
+    cout<<"eigth"<<endl;
+    cout<<"after success message -- "<<cmd_list_buffer[0]<<endl;
+    cmd_list_buffer.clear();
 
     int start_chunk = temp_struct->start_chunk_index;
-    int end_chunk = temp_struct->end_chunk_index;
     FILE *fp;
-    while(start_chunk <= end_chunk)
-        {
+
             string file_name_with_chunk = '#'+ temp_struct->file_name + '#' + to_string(start_chunk)+'#';
             write(s_sock_fd,file_name_with_chunk.c_str(),file_name_with_chunk.size());
             
-            string dest = temp_struct->dest_file_path + to_string(start_chunk)+".dat";
+            string dest = temp_struct->dest_file_path + temp_struct->file_name + to_string(start_chunk)+".dat";
             fp = fopen(dest.c_str(),"w");
             bzero(peer_buffer,BUFFER);
 
@@ -87,7 +144,7 @@ void* download_it(void* args){
             while(cnts > 0)
             {
                 int read_count = read(s_sock_fd,peer_buffer,BUFFER);
-                //cout<<"Read_Count : "<<read_count<<endl;
+                cout<<"Read_Count : "<<read_count<<endl;
                 fwrite(peer_buffer,sizeof(char),read_count,fp);
                 //cout<<read_count<<endl;
                 if(read_count < BUFFER) break;
@@ -98,27 +155,29 @@ void* download_it(void* args){
                     
             // while((read_count = read(s_sock_fd,peer_buffer,BUFFER))>0){
             //     write(dest,peer_buffer,read_count);
-            start_chunk++;
+            //start_chunk++;
             fclose(fp);
-        }
-    string exit_cmd = "#exit#";
-    write(s_sock_fd,exit_cmd.c_str(),exit_cmd.size());
-    bzero(peer_buffer,BUFFER);
-    read(s_sock_fd,peer_buffer,BUFFER);
-    cmd_list_buffer = parse_buffer(peer_buffer);
-                //cout<<cmd_list_buffer[0]<<endl;
-    if(cmd_list_buffer[0] == "close"){
-        shutdown(s_sock_fd,SHUT_RDWR);
-        close(s_sock_fd);
-    }
-    else{
-        sleep(1);
-        cout<<"Lost"<<endl;
-        //close(s_sock_fd);
-    }
+        
+        
+    // string exit_cmd = "#exit#";
+    // write(s_sock_fd,exit_cmd.c_str(),exit_cmd.size());
+    // bzero(peer_buffer,BUFFER);
+    // read(s_sock_fd,peer_buffer,BUFFER);
+    // cmd_list_buffer = parse_buffer(peer_buffer);
+    //             //cout<<cmd_list_buffer[0]<<endl;
+    // if(cmd_list_buffer[0] == "close"){
+    //     shutdown(s_sock_fd,SHUT_RDWR);
+    //     close(s_sock_fd);
+    // }
+    // else{
+    //     sleep(1);
+    //     cout<<"Lost"<<endl;
+    //     //close(s_sock_fd);
+    // }
     pthread_mutex_unlock(&lock);
-    return NULL;
-    //pthread_exit(NULL);
+    //return NULL;
+    close(s_sock_fd);
+    pthread_exit(NULL);
 }
 
 void* merge_it(void* args){
@@ -127,7 +186,7 @@ void* merge_it(void* args){
     string filepath = temp_struct->dest_file_path + temp_struct->file_name;
     fp = fopen(filepath.c_str(), "w");
     for(int i=0;i<temp_struct->chunk_count;i++){
-        string fpath = temp_struct->dest_file_path + to_string(i) +".dat";
+        string fpath = temp_struct->dest_file_path + temp_struct->file_name + to_string(i) +".dat";
         _file = fopen(fpath.c_str(),"r");
         fseek(_file,0,SEEK_END);
         int chunk_size = ftell(_file);
@@ -228,67 +287,125 @@ void* handle_client(void *args){
     int client_socket=*((int*)args);
     char buffer[BUFFER];
     vector<string> cmd_list_buffer;
-    
-    while(1)
-    {
-        cmd_list_buffer.clear();
-        bzero(buffer,BUFFER);
-        read(client_socket,buffer,BUFFER);
-        cmd_list_buffer = parse_buffer(buffer);
+    vector<string> selection;
+    bzero(buffer,BUFFER);
+    read(client_socket,buffer,BUFFER);
+    cout<<"server_side_biffer1 "<<buffer<<endl;
+    selection = parse_buffer(buffer);
 
-        if(cmd_list_buffer[0] == "exit"){
-            msg = "#close#";
-            write(client_socket,msg.c_str(),msg.size());
-            shutdown(client_socket,SHUT_RDWR);
-            close(client_socket);
-            pthread_exit(NULL);
-            //shutdown(client_socket,SHUT_RDWR);
-        }
-
-        string file_name=cmd_list_buffer[0];
-        int chunk_no = atoi(cmd_list_buffer[1].c_str());
-        cout<<"chunk no : "<<chunk_no<<endl;
-        fflush(stdout);
-        string source_path="./"+file_name;
-
-        FILE *fp;
-        fp = fopen(source_path.c_str(),"r");
-        fseek(fp,0,SEEK_SET);
-        fseek(fp,0,SEEK_END);
-        double fsize = ftell(fp);
-        int total_chunks = ceil(fsize/524288);
-
-        fseek(fp,chunk_no*524288,SEEK_SET);
-        bzero(buffer,BUFFER);
-        if(chunk_no < total_chunks-1){
-            int cnts = 512;
-            while(cnts > 0){
-                fread(buffer, sizeof(char), BUFFER, fp);
-                write(client_socket,buffer,BUFFER);
-                cnts--;
+    if(selection[0] == "bitmap"){
+        string bitmap="#";
+        if(file_chunk_count.find(selection[1]) != file_chunk_count.end())
+        {
+            for(int i=0;i<file_chunk_count[selection[1]].size();i++){
+                bitmap += to_string(file_chunk_count[selection[1]][i]);
             }
+            bitmap += '#';
         }
-        else{
-            fseek(fp,(total_chunks-1)*524288,SEEK_SET);
-            int buf_size = fsize - (total_chunks-1)*524288;
-            //double _buf_size = buf_size;
-            int cnts = buf_size/BUFFER;
-            int rem = buf_size - cnts*BUFFER;
-            while(cnts > 0){
-                fread(buffer, sizeof(char), BUFFER, fp);
-                write(client_socket,buffer,BUFFER);
-                cnts--;
-            }
-            if(rem > 0){
-                fread(buffer, sizeof(char), rem, fp);
-                write(client_socket,buffer,rem);
-            }
-            cout<<"Last Chunk"<<endl;
-            fflush(stdout);
-        }
-        fclose(fp);
+        write(client_socket,bitmap.c_str(),bitmap.size());
     }
+    else if(selection[0] == "download")
+    {
+        string temp_msg = "#success#";
+        write(client_socket,temp_msg.c_str(),temp_msg.size());
+       // while(1)
+       // {
+            cmd_list_buffer.clear();
+            bzero(buffer,BUFFER);
+            read(client_socket,buffer,BUFFER);
+            cout<<"server_side_biffer2 "<<buffer<<endl;
+            fflush(stdout);
+            cmd_list_buffer = parse_buffer(buffer);
+            string file_name=cmd_list_buffer[0];
+            int chunk_no = atoi(cmd_list_buffer[1].c_str());
+            cout<<"chunk no : "<<chunk_no<<endl;
+            fflush(stdout);
 
+            bool file_check = true;
+            cout<<"File_Check -- "<<file_check<<endl;
+            fflush(stdout);
+            for(int i=0;i<file_chunk_count[file_name].size();i++){
+                if(file_chunk_count[file_name][i] == 0){
+                    file_check == false;
+                    break;
+                }
+            }
+            if(file_check == false){
+                string source_path="./"+file_name + to_string(chunk_no);
+                FILE *fp;
+                fp = fopen(source_path.c_str(),"r");
+                fseek(fp,0,SEEK_END);
+                int chunk_size = ftell(fp);
+                fseek(fp,0,SEEK_SET);
+                bzero(buffer,BUFFER);
+
+                int cnts = chunk_size/BUFFER;
+                int rem = chunk_size - cnts*BUFFER;
+                while(cnts > 0){
+                    fread(buffer, sizeof(char), BUFFER, fp);
+                    write(client_socket,buffer,BUFFER);
+                    cnts--;
+                }
+                if(rem > 0){
+                    fread(buffer, sizeof(char), rem, fp);
+                    write(client_socket,buffer,rem);
+                }
+                fclose(fp);
+            }
+            else{
+                string source_path="./"+file_name;
+                FILE *fp;
+                fp = fopen(source_path.c_str(),"r");
+                fseek(fp,0,SEEK_SET);
+                fseek(fp,0,SEEK_END);
+                double fsize = ftell(fp);
+                int total_chunks = ceil(fsize/524288);
+
+                fseek(fp,chunk_no*524288,SEEK_SET);
+                bzero(buffer,BUFFER);
+                if(chunk_no < total_chunks-1){
+                    int cnts = 512;
+                    while(cnts > 0){
+                        fread(buffer, sizeof(char), BUFFER, fp);
+                        write(client_socket,buffer,BUFFER);
+                        cnts--;
+                    }
+                }
+                else{
+                    fseek(fp,(total_chunks-1)*524288,SEEK_SET);
+                    int buf_size = fsize - (total_chunks-1)*524288;
+                    //double _buf_size = buf_size;
+                    int cnts = buf_size/BUFFER;
+                    int rem = buf_size - cnts*BUFFER;
+                    while(cnts > 0){
+                        fread(buffer, sizeof(char), BUFFER, fp);
+                        write(client_socket,buffer,BUFFER);
+                        cnts--;
+                    }
+                    if(rem > 0){
+                        fread(buffer, sizeof(char), rem, fp);
+                        write(client_socket,buffer,rem);
+                    }
+                    cout<<"Last Chunk"<<endl;
+                    fflush(stdout);
+                //}
+                }
+            fclose(fp);
+        }
+    }
+    // bzero(buffer,BUFFER);
+    // read(client_socket,buffer,BUFFER);
+    // cmd_list_buffer.clear();
+    // cmd_list_buffer = parse_buffer(buffer);
+    // if(cmd_list_buffer[0] == "exit"){
+    //             msg = "#close#";
+    //             write(client_socket,msg.c_str(),msg.size());
+    //             shutdown(client_socket,SHUT_RDWR);
+    //             close(client_socket);
+    //             pthread_exit(NULL);
+    //             //shutdown(client_socket,SHUT_RDWR);
+    //         }
+    
     // int read_count,source;
 
     // source = open(source_path.c_str(), O_RDONLY);
@@ -297,6 +414,7 @@ void* handle_client(void *args){
     //     write(client_socket,buffer,read_count);
     // }
     /*close file and socket*/
+    //close(client_socket);
     close(client_socket);
     pthread_exit(NULL);
 }
@@ -398,6 +516,9 @@ int main(int argc,char *argv[]){
         else if(input.substr(0,11) == "upload_file"){
             input+=' '+peer_ip+' '+to_string(peer_port);
         }
+        else if(input.substr(0,13) == "download_file"){
+            input+=' '+peer_ip+' '+to_string(peer_port);
+        }
         else if(input.substr(0,12) == "create_group"){
             input+=' '+user_id;
         }
@@ -424,6 +545,8 @@ int main(int argc,char *argv[]){
 
             if(cmd_list[0] == "upload_file"){
                 int chunks = chunkCount(cmd_list[1]);
+                file_chunk_count[getFileName(cmd_list[1])].resize(chunks,1);
+                cout<<"chunks -- "<<chunks<<endl;
                 cmd+=to_string(chunks)+'#';
             }
 
@@ -536,7 +659,7 @@ int main(int argc,char *argv[]){
                 fflush(stdout);
             }
             else if(cmd_list[0] == "download_file"){
-                if(cmd_list.size() >= 4){
+                if(cmd_list.size() >= 6){
                     char buff[BUFFER];
                     bzero(buff,BUFFER);
                     read(skt,buff,BUFFER);
@@ -547,11 +670,43 @@ int main(int argc,char *argv[]){
                         // }
                         //cout<<cmd_list_buffer.size()<<endl;
                         //fflush(stdout);
-                        double chunk_count = stoi(cmd_list_buffer[cmd_list_buffer.size()-1]);
+
+                        int chunk_count = stoi(cmd_list_buffer[cmd_list_buffer.size()-1]);
                         int peers_count = (cmd_list_buffer.size()-1)/2;
                         cout<<"Number of peers -> "<<peers_count<<endl;
                         vector<int> chunk_map(chunk_count,0);
 
+                        vector<vector<pair<string,string>>> bitmap_collection(chunk_count);
+                        cout<<"first"<<endl;
+                        for(int i=0;i<cmd_list_buffer.size()-2;i=i+2){
+                            string bitmap = get_bitmap(cmd_list_buffer[i],cmd_list_buffer[i+1],cmd_list[2]);
+                            if(bitmap.size() != chunk_count){
+                                cout<<"bitmap size is less than chunk count"<<endl;
+                                fflush(stdout);
+                            }
+                            cout<<"second"<<endl;
+                            for(int j=0;j<bitmap.size();j++){
+                                if(bitmap[j] == '1')
+                                bitmap_collection[j].push_back({cmd_list_buffer[i],cmd_list_buffer[i+1]});
+                            }
+                        }
+                        cout<<"third"<<endl;
+                        pthread_t target_tid[int(chunk_count)];
+                        struct _download_it _args[int(chunk_count)]; 
+                        for(int i=0;i<chunk_count;i++){
+                            cout<<"bitmap size"<<bitmap_collection[i].size()<<endl;
+                            int index = rand() % bitmap_collection[i].size();
+                            _args[i].start_chunk_index = i;
+                            _args[i].end_chunk_index = chunk_count-1;
+                            _args[i].ip = bitmap_collection[i][index].first;
+                            _args[i].port = bitmap_collection[i][index].second;
+                            _args[i].file_name = cmd_list[2];
+                            _args[i].dest_file_path = cmd_list[3];
+                            pthread_create(&target_tid[i], NULL, download_it, (void*)&_args[i]);
+                        }
+                    cout<<"Join required -- "<<endl;
+                    fflush(stdout);
+                    /*
                         int chunk_per_peer = ceil(chunk_count/peers_count);
 
                         int i=0,j=0,k=0;
@@ -580,7 +735,8 @@ int main(int argc,char *argv[]){
                             i = i + chunk_per_peer;
                             j++,k++;
                         }
-                        pthread_join(target_tid[j-1],NULL);
+                        */
+                        //pthread_join(target_tid,NULL);
                         pthread_mutex_destroy(&lock);
                         struct _merge_it ptr;
                         ptr.file_name = cmd_list[2];
@@ -588,7 +744,9 @@ int main(int argc,char *argv[]){
                         ptr.start_chunk_index = 0;
                         ptr.end_chunk_index = chunk_count -1;
                         ptr.chunk_count = chunk_count;
-                        pthread_create(&target_tid[j], NULL, merge_it, (void*)&ptr);
+                        for(int i=0;i<chunk_count;i++)
+                            pthread_join(target_tid[i],NULL);
+                        pthread_create(&target_tid[int(chunk_count)], NULL, merge_it, (void*)&ptr);
                     }
                     else cout<<"---File is not available to download---";
                 }

@@ -257,7 +257,7 @@ void *handle_client(void *args){
             fflush(stdout);
         }
         else if(cmd_list[0] == "download_file"){
-            if(cmd_list.size() >= 4){
+            if(cmd_list.size() >= 6){
                 string ip_port="#";
                 if(all_files.find(cmd_list[1]) != all_files.end()){
                     if(all_files[cmd_list[1]].find(cmd_list[2]) != all_files[cmd_list[1]].end()){
@@ -265,6 +265,7 @@ void *handle_client(void *args){
                         for(auto itr=uSet.begin();itr != uSet.end();itr++)
                             ip_port += (*itr).first +'#'+(*itr).second + '#';
                         ip_port += file_chunk_count[cmd_list[2]] + '#';
+                        all_files[cmd_list[1]][cmd_list[2]].insert({cmd_list[4],cmd_list[5]});
                     }
                 }
                 write(client_socket,ip_port.c_str(),BUFFER);
