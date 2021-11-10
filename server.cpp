@@ -17,8 +17,8 @@ using namespace std;
 //unordered_map<short,sockaddr_in> ip_data;
 vector<sockaddr_in> client_data;
 vector<string> cmd_list;
-unordered_map<string, unordered_set<string>> groups;
-unordered_map<string, unordered_set<string>> pending_requests;
+unordered_map<string, set<string>> groups;
+unordered_map<string, set<string>> pending_requests;
 unordered_map<string,unordered_map<string,set<pair<string,string>>>> all_files;
 unordered_map<string,pair<string,string>> file_chunk_count;
 unordered_map<string,string> group_owner;
@@ -148,40 +148,43 @@ void *handle_client(void *args){
         else if(cmd_list[0] == "leave_group"){
             string gid = cmd_list[1];
             string uid = cmd_list[2];
-            if(group_owner[gid] != uid){
+
+            if(groups.find(gid) != groups.end())
+            {
                 auto itr = groups[gid].find(uid);
-                if(itr != groups[gid].end()){
-                    groups[gid].erase(itr);
-                    cout<<"User left the group"<<endl;
+                groups[gid].erase(itr);
+
+                if(group_owner[gid] == uid)
+                {
+                    /*delete current person from groups map*/
+                    if(groups[gid].empty() == true){
+                        groups.erase(gid);
+                        group_owner.erase(gid);
+                    }
+                    else{
+                    /*select anyone from any group,say first member of first group and make admin*/
+                        string newUid;
+
+                        // for(auto it:groups) {
+                        //     auto itrat = it.second;
+                        //     newUid = *itrat.begin();
+                        //     break;
+                        // }
+                        cout<<"Under --- "<<endl;
+                        for(auto x=groups[gid].begin();x!=groups[gid].end();x++){
+                            cout<<"Iterating "<<*x<<endl;
+                            if(*x == uid) continue;
+                            newUid = *x;
+                            break;
+                        }
+                        if(groups[gid].find(uid) != groups[gid].end()) cout<<"IIssue is there"<<endl;
+                        group_owner[gid] = newUid;
+                        cout<<"User,who left, was admin, So now --"<<group_owner[gid]<<"--is the new Admin of --"<<gid<<endl;
+                    }
                 }
-                else 
-                    cout<<"---> User already not in the group"<<endl;
             }
             else{
-                /*delete current person from groups map*/
-                auto itr = groups[gid];
-                itr.erase(itr.find(uid));
-                if(itr.empty() == true){
-                    groups.erase(gid);
-                    group_owner.erase(gid);
-                }
-                else{
-                /*select anyone from any group,say first member of first group and make admin*/
-                    string newUid;
-
-                    // for(auto it:groups) {
-                    //     auto itrat = it.second;
-                    //     newUid = *itrat.begin();
-                    //     break;
-                    // }
-                    for(auto x=itr.begin();x!=itr.end();x++){
-                        if(*x == uid) continue;
-                        newUid = *x;
-                        break;
-                    }
-                    group_owner[gid] = newUid;
-                    cout<<"User,who left, was admin, So now --"<<group_owner[gid]<<"--is the new Admin of --"<<gid<<endl;
-                }
+                cout<<"User is not the of the group."<<endl;
             }
             fflush(stdout);
         }

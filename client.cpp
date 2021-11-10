@@ -606,6 +606,9 @@ int main(int argc,char *argv[]){
         else if(input.substr(0,10) == "join_group"){
             input+=' '+user_id;
         }
+        else if(input.substr(0,9) == "my_groups"){
+            input+=' '+user_id;
+        }
         else if(input.substr(0,14) == "accept_request"){
             input+=' '+user_id;
         }
@@ -710,12 +713,13 @@ int main(int argc,char *argv[]){
             }
             else if(cmd_list[0] == "my_groups"){
                 cout<<"-----------------------------------------------------------------------------"<<endl;
+                vector<string> _cmd_list_buffer;
                 bzero(buffer,BUFFER);
                 read(skt,buffer,BUFFER);
-                cmd_list_buffer = parse_buffer(buffer);
+                _cmd_list_buffer = parse_buffer(buffer);
 
-                if(cmd_list_buffer.size() > 0){
-                    for(auto itr:cmd_list_buffer){
+                if(_cmd_list_buffer.size() > 0){
+                    for(auto itr:_cmd_list_buffer){
                         cout<<itr<<" ";
                     }
                 }
