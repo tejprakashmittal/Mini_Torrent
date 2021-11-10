@@ -240,6 +240,7 @@ void* merge_it(void* args){
     FILE *fp,*_file;
     struct _merge_it *temp_struct = (struct _merge_it *)args; 
     string filepath = temp_struct->dest_file_path + temp_struct->file_name;
+    fflush(stdout);
     fp = fopen(filepath.c_str(), "w");
     for(int i=0;i<temp_struct->chunk_count;i++){
         string fpath = temp_struct->dest_file_path + temp_struct->file_name + to_string(i) +".dat";
@@ -784,6 +785,7 @@ int main(int argc,char *argv[]){
                                 bitmap_collection[j].push_back({cmd_list_buffer[i],cmd_list_buffer[i+1]});
                             }
                         }
+                        cout<<"bitmap collection size "<<bitmap_collection.size()<<endl;
                         pthread_t target_tid[int(chunk_count)];
                         struct _download_it _args[int(chunk_count)]; 
                         for(int i=0;i<chunk_count;i++){
@@ -840,12 +842,13 @@ int main(int argc,char *argv[]){
                         ptr.start_chunk_index = 0;
                         ptr.end_chunk_index = chunk_count -1;
                         ptr.chunk_count = chunk_count;
+                        file_chunk_count[cmd_list[2]].resize(chunk_count,0);
                         for(int i=0;i<chunk_count;i++)
                         {
                             pthread_join(target_tid[i],NULL);
                             file_chunk_count[cmd_list[2]][i] = 1;
                         }
-                        pthread_create(&target_tid[int(chunk_count)], NULL, merge_it, (void*)&ptr);
+                        pthread_create(&target_tid[chunk_count], NULL, merge_it, (void*)&ptr);
                     }
                     else cout<<"---File is not available or Peers are Ofline or You are not part of group---";
                 }
