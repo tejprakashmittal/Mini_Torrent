@@ -29,6 +29,7 @@ pthread_mutex_t lock,lock2,lock3;
 vector<string> cmd_list;
 unordered_map<string,vector<int>> file_chunk_count;
 vector<string> parse_buffer(char buffer[]);
+vector<pair<string,string>> download_history;
 
 struct _download_it{
     string ip,port,dest_file_path,file_name;
@@ -342,7 +343,7 @@ bool validate_command(){
     else if(cmd_list[0] == "list_groups" && cmd_list.size() == 1){
         return true;
     }
-    else if(cmd_list[0] == "exit" or cmd_list[0] == "my_groups" or cmd_list[0] == "list_files" or cmd_list[0] == "upload_file" or cmd_list[0] == "download_file"){
+    else if(cmd_list[0] == "exit" or cmd_list[0] == "show_downloads" or cmd_list[0] == "my_groups" or cmd_list[0] == "list_files" or cmd_list[0] == "upload_file" or cmd_list[0] == "download_file"){
         return true;
     }
     else{
@@ -764,6 +765,7 @@ int main(int argc,char *argv[]){
                         // for(auto itr:cmd_list_buffer){
                         //     cout<<itr<<" ";
                         // }
+                        download_history.push_back({cmd_list[1],cmd_list[2]});
                         cout<<cmd_list_buffer[cmd_list_buffer.size()-2]<<endl;
                         cout<<cmd_list_buffer[cmd_list_buffer.size()-1]<<endl;
                         cout<<cmd_list_buffer.size()<<endl;
@@ -854,6 +856,36 @@ int main(int argc,char *argv[]){
                 }
                 else cout<<"---Invalid Command---";
                 cout<<endl;
+                fflush(stdout);
+            }
+            else if(cmd_list[0] == "show_downloads"){
+                if(download_history.size() > 0){
+                    for(int i=0;i<download_history.size();i++){
+                        string filename_ = download_history[i].second;
+                        if(file_chunk_count.size() > 0 && (file_chunk_count.find(filename_) != file_chunk_count.end())){
+                            bool complete = true;
+                            for(int j=0;j<file_chunk_count[filename_].size();j++){
+                                if(file_chunk_count[filename_][j] != 1){
+                                    complete = false;
+                                    break;
+                                }
+                            }
+                            if(complete){
+                                cout<<"[C] ";
+                                printf("[%s] ",download_history[i].first.c_str());
+                                cout<<filename_<<endl;
+                            }
+                            else{
+                                cout<<"[D] ";
+                                printf("[%s] ",download_history[i].first.c_str());
+                                cout<<filename_<<endl;
+                            }
+                        }
+                    }
+                }
+                else{
+                    cout<<"No download history"<<endl;
+                }
                 fflush(stdout);
             }
             else if(cmd_list[0] == "file_upload"){
