@@ -17,14 +17,15 @@ using namespace std;
 //unordered_map<short,sockaddr_in> ip_data;
 vector<sockaddr_in> client_data;
 vector<string> cmd_list;
-unordered_map<string, set<string>> groups;
+unordered_map<string, set<string>> groups; // gid -> set of uids
 unordered_map<string, set<string>> pending_requests;
-unordered_map<string,unordered_map<string,set<pair<string,string>>>> all_files;
-unordered_map<string,pair<string,string>> file_chunk_count;
-unordered_map<string,string> group_owner;
-unordered_map<string,string> uid_ip_port;
-unordered_map<string,string> users_cred;
-map<pair<string, string>, bool> onlineStatus;
+unordered_map<string,unordered_map<string,set<pair<string,string>>>> all_files; // gid -> {filename -> set of ip port pairs}
+unordered_map<string,pair<string,string>> file_chunk_count; // filename -> chunk and sha1 hash
+unordered_map<string,string> group_owner; // gid -> uid(admin)
+unordered_map<string,string> uid_ip_port; // uid -> ip port
+unordered_map<string,string> users_cred; // uid->password
+map<pair<string, string>, bool> onlineStatus; // ip port -> true or false
+unordered_map<string, string> FilePathMap; // filename -> filepath
 
 struct arg_struct {
     int socket_fd;
@@ -245,16 +246,25 @@ void *handle_client(void *args){
         }
         else if(cmd_list[0] == "upload_file"){
             string filename = getFileName(cmd_list[1]);
-            if(all_files[cmd_list[2]][filename].find({cmd_list[3],cmd_list[4]}) == all_files[cmd_list[2]][filename].end())
+            string gid = cmd_list[2];
+            if(groups.find(gid) != groups.end())
             {
-                all_files[cmd_list[2]][filename].insert({cmd_list[3],cmd_list[4]});
-                file_chunk_count[filename] = {cmd_list[5],cmd_list[6]};
-                msg = "---Successfully uploaded---";
-                write(client_socket,msg.c_str(),msg.size());
-                cout<<"---File---"<<filename<<"---Group---"<<cmd_list[2]<<endl;
+                if(all_files[cmd_list[2]][filename].find({cmd_list[3],cmd_list[4]}) == all_files[cmd_list[2]][filename].end())
+                {
+                    all_files[cmd_list[2]][filename].insert({cmd_list[3],cmd_list[4]});
+                    file_chunk_count[filename] = {cmd_list[5],cmd_list[6]};
+                    FilePathMap[filename] = cmd_list[1];
+                    msg = "---Successfully uploaded---";
+                    write(client_socket,msg.c_str(),msg.size());
+                    cout<<"---File---"<<filename<<"---Group---"<<cmd_list[2]<<endl;
+                }
+                else{
+                    msg = "---Already uploaded---";
+                    write(client_socket,msg.c_str(),msg.size());
+                }
             }
             else{
-                msg = "---Already uploaded---";
+                msg = "---Group does not exist---";
                 write(client_socket,msg.c_str(),msg.size());
             }
             fflush(stdout);
@@ -301,6 +311,11 @@ void *handle_client(void *args){
             }
             cout<<endl;
             fflush(stdout);
+        }
+        else if(cmd_list[0] == "stop_share"){
+            string gid = cmd_list[1];
+            string filename = cmd_list[2];
+            //if(all_files.find(gid))
         }
         else if(input == 3){
             int dest,read_count;

@@ -343,7 +343,7 @@ bool validate_command(){
     else if(cmd_list[0] == "list_groups" && cmd_list.size() == 1){
         return true;
     }
-    else if(cmd_list[0] == "exit" or cmd_list[0] == "show_downloads" or cmd_list[0] == "my_groups" or cmd_list[0] == "list_files" or cmd_list[0] == "upload_file" or cmd_list[0] == "download_file"){
+    else if(cmd_list[0] == "exit" or cmd_list[0] == "stop_share" or cmd_list[0] == "show_downloads" or cmd_list[0] == "my_groups" or cmd_list[0] == "list_files" or cmd_list[0] == "upload_file" or cmd_list[0] == "download_file"){
         return true;
     }
     else{
@@ -593,7 +593,10 @@ int main(int argc,char *argv[]){
         if(input.substr(0,5) == "login"){
             input+=' '+peer_ip+' '+to_string(peer_port);
         }
-        if(input.substr(0,6) == "logout"){
+        else if(input.substr(0,6) == "logout"){  
+            input+=' '+peer_ip+' '+to_string(peer_port);
+        }
+        else if(input.substr(0,10) == "stop_share"){
             input+=' '+peer_ip+' '+to_string(peer_port);
         }
         else if(input.substr(0,11) == "upload_file"){
@@ -632,9 +635,9 @@ int main(int argc,char *argv[]){
             if(cmd_list[0] == "upload_file"){
                 int chunks = chunkCount(cmd_list[1]);
                 file_chunk_count[getFileName(cmd_list[1])].resize(chunks,1);
-                cout<<"chunks -- "<<chunks<<endl;
+                //cout<<"chunks -- "<<chunks<<endl;
                 string sha_val = getSha(getFileName(cmd_list[1]));
-                cout<<sha_val<<endl;
+                //cout<<sha_val<<endl;
                 cmd+=to_string(chunks)+'#'+sha_val+'#';
             }
 
@@ -887,6 +890,9 @@ int main(int argc,char *argv[]){
                     cout<<"No download history"<<endl;
                 }
                 fflush(stdout);
+            }
+            else if(cmd_list[0] == "stop_share"){
+                
             }
             else if(cmd_list[0] == "file_upload"){
                 int read_count,source;
