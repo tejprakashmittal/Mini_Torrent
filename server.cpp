@@ -1,4 +1,5 @@
 #include<unordered_map>
+#include<map>
 #include<unordered_set>
 #include<set>
 #include<vector>
@@ -23,6 +24,7 @@ unordered_map<string,pair<string,string>> file_chunk_count;
 unordered_map<string,string> group_owner;
 unordered_map<string,string> uid_ip_port;
 unordered_map<string,string> users_cred;
+map<pair<string, string>, bool> onlineStatus;
 
 struct arg_struct {
     int socket_fd;
@@ -100,6 +102,7 @@ void *handle_client(void *args){
             // parse_buffer(buffer);
             if(verify(cmd_list[1],cmd_list[2])){
                 uid_ip_port[cmd_list[1]] = '#'+cmd_list[3]+'#'+cmd_list[4]+'#';
+                onlineStatus[{cmd_list[3],cmd_list[4]}] = true;   //  3->ip,4->port
                 cout<<"User logged in : "<<cmd_list[1]<<endl;
                 fflush(stdout);
                 msg="Login Successful";
@@ -107,6 +110,17 @@ void *handle_client(void *args){
                 //cur_user = cmd_list[1];
             }
             cmd_list.clear();       
+        }
+        else if(cmd_list[0] == "logout"){   // 1->ip, 2->port
+            string temp_msg = "";
+            if(onlineStatus.find({cmd_list[1],cmd_list[2]}) != onlineStatus.end()){
+                onlineStatus[{cmd_list[1],cmd_list[2]}] = false;
+                temp_msg = "Logged out successfully";
+            }
+            else{
+                temp_msg = "User not found";
+            }
+            write(client_socket,temp_msg.c_str(),temp_msg.size());
         }
         else if(cmd_list[0] == "create_group"){
             if(cmd_list.size() >= 3){
@@ -123,7 +137,7 @@ void *handle_client(void *args){
         else if(cmd_list[0] == "join_group"){
             if(cmd_list.size() >= 3){
                 pending_requests[cmd_list[1]].insert(cmd_list[2]);
-                cout<<"User @"<<cmd_list[2]<<"added in pending list"<<endl;
+                cout<<"User @ "<<cmd_list[2]<<"added in pending list"<<endl;
                 fflush(stdout);
             }
             else {
@@ -259,13 +273,25 @@ void *handle_client(void *args){
         else if(cmd_list[0] == "download_file"){
             if(cmd_list.size() >= 6){
                 string ip_port="#";
-                if(all_files.find(cmd_list[1]) != all_files.end()){
-                    if(all_files[cmd_list[1]].find(cmd_list[2]) != all_files[cmd_list[1]].end()){
-                        auto uSet = all_files[cmd_list[1]][cmd_list[2]];
-                        for(auto itr=uSet.begin();itr != uSet.end();itr++)
-                            ip_port += (*itr).first +'#'+(*itr).second + '#';
-                        ip_port += file_chunk_count[cmd_list[2]].first + '#' + file_chunk_count[cmd_list[2]].second +'#';
-                        all_files[cmd_list[1]][cmd_list[2]].insert({cmd_list[4],cmd_list[5]});
+                auto _itr = groups[cmd_list[1]].find(cmd_list[4]);
+                if(_itr != groups[cmd_list[1]].end())
+                {
+                    bool atLeastOne = false;
+                    if(all_files.find(cmd_list[1]) != all_files.end()){
+                        if(all_files[cmd_list[1]].find(cmd_list[2]) != all_files[cmd_list[1]].end()){
+                            auto uSet = all_files[cmd_list[1]][cmd_list[2]];
+                            for(auto itr=uSet.begin();itr != uSet.end();itr++){
+                                if(onlineStatus[{(*itr).first,(*itr).second}] == true){
+                                    ip_port += (*itr).first +'#'+(*itr).second + '#';
+                                    atLeastOne = true;
+                                }
+                            }
+                            //Adding chunk_count and sha1hash at the end
+                            if(atLeastOne){
+                                ip_port += file_chunk_count[cmd_list[2]].first + '#' + file_chunk_count[cmd_list[2]].second +'#';
+                                all_files[cmd_list[1]][cmd_list[2]].insert({cmd_list[5],cmd_list[6]});
+                            }
+                        }
                     }
                 }
                 write(client_socket,ip_port.c_str(),BUFFER);

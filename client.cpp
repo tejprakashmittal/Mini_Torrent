@@ -21,6 +21,7 @@ int status =1;
 string peer_ip;
 string user_id;
 string msg="";
+string calculated_hash="";
 bool logged_in=false;
 
 //char buffer[BUFFER];
@@ -170,7 +171,7 @@ handlclient_method also needs to be modified to donload only required chunk
     cmd_list_buffer.clear();
     cmd_list_buffer = parse_buffer(peer_buffer);
     fflush(stdout);
-    cout<<"cmd list size "<<cmd_list_buffer.size()<<endl;
+    //cout<<"cmd list size "<<cmd_list_buffer.size()<<endl;
     if(cmd_list_buffer[0] != "success"){
         cout<<"Error while downloading chunk"<<endl;
         fflush(stdout);
@@ -253,12 +254,11 @@ void* merge_it(void* args){
         fclose(_file);
     }
     string sha_hashed = getSha(filepath);
-    string hashes = temp_struct->sha_hash;
-    if(sha_hashed == hashes){
+    if(sha_hashed == calculated_hash){
         cout<<"Hash_Matched"<<endl;
         fflush(stdout);
     }
-    cout<<sha_hashed<<endl<<hashes<<endl;
+    cout<<sha_hashed<<endl<<calculated_hash<<endl;
     fclose(fp);
     return NULL;
 }
@@ -320,6 +320,9 @@ bool validate_command(){
     else if(cmd_list[0] == "login" && cmd_list.size() == 5){
         return true;
     }
+    else if(cmd_list[0] == "logout" && cmd_list.size() == 3){
+        return true;
+    }
     else if(cmd_list[0] == "create_group" && cmd_list.size() == 3){
         return true;
     }
@@ -338,7 +341,7 @@ bool validate_command(){
     else if(cmd_list[0] == "list_groups" && cmd_list.size() == 1){
         return true;
     }
-    else if(cmd_list[0] == "exit" or cmd_list[0] == "list_files" or cmd_list[0] == "upload_file" or cmd_list[0] == "download_file"){
+    else if(cmd_list[0] == "exit" or cmd_list[0] == "my_groups" or cmd_list[0] == "list_files" or cmd_list[0] == "upload_file" or cmd_list[0] == "download_file"){
         return true;
     }
     else{
@@ -383,7 +386,7 @@ void* handle_client(void *args){
             cmd_list_buffer = parse_buffer(buffer);
             string file_name=cmd_list_buffer[0];
             int chunk_no = stoi(cmd_list_buffer[1].c_str());
-            //cout<<"chunk no : "<<chunk_no<<endl;
+            cout<<"chunk no. -> "<<chunk_no<<endl;
             fflush(stdout);
 
             bool file_check = true;
@@ -586,14 +589,16 @@ int main(int argc,char *argv[]){
 		fgets(buffer, BUFFER, stdin);
         string input=buffer;
         if(input.substr(0,5) == "login"){
-            //fflush(stdout);
+            input+=' '+peer_ip+' '+to_string(peer_port);
+        }
+        if(input.substr(0,6) == "logout"){
             input+=' '+peer_ip+' '+to_string(peer_port);
         }
         else if(input.substr(0,11) == "upload_file"){
             input+=' '+peer_ip+' '+to_string(peer_port);
         }
         else if(input.substr(0,13) == "download_file"){
-            input+=' '+peer_ip+' '+to_string(peer_port);
+            input+=' '+user_id+' '+peer_ip+' '+to_string(peer_port);
         }
         else if(input.substr(0,12) == "create_group"){
             input+=' '+user_id;
@@ -648,6 +653,14 @@ int main(int argc,char *argv[]){
                 cout<<msg<<endl;
                 logged_in = true;
                 user_id = cmd_list[1];
+                cmd_list.clear();
+            }
+            else if(cmd_list[0] == "logout"){
+                bzero(buffer, BUFFER);
+                read(skt,buffer,BUFFER);
+                msg=buffer;
+                cout<<msg<<endl;
+                logged_in = false;
                 cmd_list.clear();
             }
             else if(cmd_list[0] == "create_group"){
@@ -818,7 +831,8 @@ int main(int argc,char *argv[]){
                         ptr.file_name = cmd_list[2];
                         ptr.dest_file_path = cmd_list[3];
                         ptr.sha_hash = cmd_list_buffer[cmd_list_buffer.size()-1];
-                        cout<<"ptr->sha "<<ptr.sha_hash<<endl;
+                        //cout<<"ptr->sha "<<ptr.sha_hash<<endl;
+                        calculated_hash = cmd_list_buffer[cmd_list_buffer.size()-1];
                         ptr.start_chunk_index = 0;
                         ptr.end_chunk_index = chunk_count -1;
                         ptr.chunk_count = chunk_count;
@@ -829,7 +843,7 @@ int main(int argc,char *argv[]){
                         }
                         pthread_create(&target_tid[int(chunk_count)], NULL, merge_it, (void*)&ptr);
                     }
-                    else cout<<"---File is not available to download---";
+                    else cout<<"---File is not available or Peers are Ofline or You are not part of group---";
                 }
                 else cout<<"---Invalid Command---";
                 cout<<endl;
