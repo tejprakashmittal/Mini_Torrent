@@ -269,6 +269,40 @@ void *handle_client(void *args){
             }
             fflush(stdout);
         }
+        else if(cmd_list[0] == "stop_share"){
+            string gid = cmd_list[1];
+            string filename = cmd_list[2];
+            string ip = cmd_list[3];
+            string port = cmd_list[4];
+            if(all_files.find(gid) != all_files.end()){
+                if(all_files[gid].find(filename) != all_files[gid].end()){
+                    if(all_files[gid][filename].find({ip,port}) != all_files[gid][filename].end()){
+                        auto itr = all_files[gid][filename].find({ip,port});
+                        all_files[gid][filename].erase(itr);
+
+                        if(all_files[gid][filename].empty() == true){
+                            all_files[gid].erase(filename);
+                            file_chunk_count.erase(filename);
+                        }
+                        string temp_msg = "---Sharing stopped successfully---";
+                        write(client_socket,temp_msg.c_str(),temp_msg.size());
+                    }
+                    else{
+                        string temp_msg = "---No such file shared by you---";
+                        write(client_socket,temp_msg.c_str(),temp_msg.size());
+                    }
+                }
+                else{
+                    string temp_msg = "---File is not shared by anyone---";
+                    write(client_socket,temp_msg.c_str(),temp_msg.size());
+                }
+            }
+            else{
+                string temp_msg = "---No such group for the file---";
+                write(client_socket,temp_msg.c_str(),temp_msg.size());
+            }
+            fflush(stdout);
+        }
         else if(cmd_list[0] == "list_files"){
             if(cmd_list.size() >= 2){
                 string files_list="#";
@@ -276,7 +310,12 @@ void *handle_client(void *args){
                 {
                     auto files = all_files[cmd_list[1]];
                     for(auto file:files){
-                        files_list += file.first +'#';
+                        for(auto seeders:file.second){
+                            if(onlineStatus[seeders] == true){
+                                files_list += file.first +'#';
+                                break;
+                            }
+                        }
                     }
                 }
                 write(client_socket,files_list.c_str(),BUFFER);
@@ -311,11 +350,6 @@ void *handle_client(void *args){
             }
             cout<<endl;
             fflush(stdout);
-        }
-        else if(cmd_list[0] == "stop_share"){
-            string gid = cmd_list[1];
-            string filename = cmd_list[2];
-            //if(all_files.find(gid))
         }
         else if(input == 3){
             int dest,read_count;

@@ -30,6 +30,7 @@ vector<string> cmd_list;
 unordered_map<string,vector<int>> file_chunk_count;
 vector<string> parse_buffer(char buffer[]);
 vector<pair<string,string>> download_history;
+unordered_map<string, string> FilePathMap; // filename -> filepath
 
 struct _download_it{
     string ip,port,dest_file_path,file_name;
@@ -733,9 +734,17 @@ int main(int argc,char *argv[]){
                 fflush(stdout);
             }
             else if(cmd_list[0] == "upload_file"){
+                FilePathMap[getFileName(cmd_list[1])] = cmd_list[1];
                 bzero(buffer,BUFFER);
                 read(skt,buffer,BUFFER);
                 cout<<buffer<<endl;
+                fflush(stdout);
+            }
+            else if(cmd_list[0] == "stop_share"){
+                char _buffer[BUFFER];
+                bzero(_buffer,BUFFER);
+                read(skt,_buffer,BUFFER);
+                cout<<_buffer<<endl;
                 fflush(stdout);
             }
             else if(cmd_list[0] == "list_files"){
@@ -890,9 +899,6 @@ int main(int argc,char *argv[]){
                     cout<<"No download history"<<endl;
                 }
                 fflush(stdout);
-            }
-            else if(cmd_list[0] == "stop_share"){
-                
             }
             else if(cmd_list[0] == "file_upload"){
                 int read_count,source;
