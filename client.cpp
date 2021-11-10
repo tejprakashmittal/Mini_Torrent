@@ -21,6 +21,7 @@ int status =1;
 string peer_ip;
 string user_id;
 string msg="";
+string error_msg="";
 string calculated_hash="";
 bool logged_in=false;
 
@@ -338,24 +339,52 @@ bool validate_command(){
         return true;
     }
     else if(cmd_list[0] == "logout" && cmd_list.size() == 3){
+        if(logged_in == false){
+            error_msg = "---Please log in first---";
+            return false;
+        }
         return true;
     }
     else if(cmd_list[0] == "create_group" && cmd_list.size() == 3){
+        if(logged_in == false){
+            error_msg = "---Please log in first---";
+            return false;
+        }
         return true;
     }
     else if(cmd_list[0] == "join_group" && cmd_list.size() == 3){
+        if(logged_in == false){
+            error_msg = "---Please log in first---";
+            return false;
+        }
         return true;
     }
     else if(cmd_list[0] == "leave_group" && cmd_list.size() == 3){
+        if(logged_in == false){
+            error_msg = "---Please log in first---";
+            return false;
+        }
         return true;
     }
     else if(cmd_list[0] == "accept_request" && cmd_list.size() == 4){
+        if(logged_in == false){
+            error_msg = "---Please log in first---";
+            return false;
+        }
         return true;
     }
     else if(cmd_list[0] == "list_requests" && cmd_list.size() == 3){
+        if(logged_in == false){
+            error_msg = "---Please log in first---";
+            return false;
+        }
         return true;
     }
     else if(cmd_list[0] == "list_groups" && cmd_list.size() == 1){
+        if(logged_in == false){
+            error_msg = "---Please log in first---";
+            return false;
+        }
         return true;
     }
     else if(cmd_list[0] == "exit" or cmd_list[0] == "stop_share" or cmd_list[0] == "show_downloads" or cmd_list[0] == "my_groups" or cmd_list[0] == "list_files" or cmd_list[0] == "upload_file" or cmd_list[0] == "download_file"){
@@ -592,8 +621,13 @@ void* init_server_mode(void* args){
 int main(int argc,char *argv[]){
     vector<string> cmd_list_buffer;
     char buffer[BUFFER];
-    peer_ip=argv[1];
-    peer_port=atoi(argv[2]);
+    vector<string> ip_port_args = splitArgs(argv[1]);
+    if(ip_port_args.size() < 2){
+        cout<<"Invalid IP or PORT"<<endl;
+        exit(0);
+    }
+    peer_ip = ip_port_args[0];                               
+    peer_port=stoi(ip_port_args[1]);
     
     int skt = init_client_mode();
     pthread_t t_serv_id;
@@ -645,7 +679,7 @@ int main(int argc,char *argv[]){
         //string cmd='#'+cmd_list[0]+'#';
         string cmd = parse_cmd_list();
         //cout<<cmd;
-        fflush(stdout);
+        //fflush(stdout);
 
         if(validate_command()){
 
@@ -1000,7 +1034,14 @@ int main(int argc,char *argv[]){
                 cout<<"Invalid Command"<<endl;
             }
         }
-        else cout<<"Invalid Command"<<endl;
+        else{
+            if(error_msg.size() > 0){
+                cout<<error_msg<<endl;
+                error_msg="";
+            }
+            else 
+                cout<<"Invalid Command"<<endl;
+        }
         fflush(stdout);
     }
     close(skt);
