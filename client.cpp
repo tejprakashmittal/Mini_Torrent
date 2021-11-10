@@ -42,6 +42,20 @@ struct _merge_it{
     int start_chunk_index,end_chunk_index,chunk_count;
 };
 
+vector<string> splitArgs(string str){
+	vector<string> ipPort;
+    string ip="",port="";
+	for(int i=0;i<str.size();i++){
+        if(str[i] == ':'){
+            ipPort.push_back(ip);
+            port = str.substr(i+1,str.size()-i-1);
+            ipPort.push_back(port);
+        }
+        ip.push_back(str[i]);
+    }
+    return ipPort;
+}
+
 unsigned long long int find_size(string filepath){
     FILE *fp;
     fp = fopen(filepath.c_str(),"r");
@@ -387,7 +401,7 @@ void* handle_client(void *args){
             // cout<<"server_side_biffer2 "<<buffer<<endl;
             // fflush(stdout);
             cmd_list_buffer = parse_buffer(buffer);
-            string file_name=cmd_list_buffer[0];
+            string file_name = cmd_list_buffer[0];
             int chunk_no = stoi(cmd_list_buffer[1].c_str());
             cout<<"chunk no. -> "<<chunk_no<<endl;
             fflush(stdout);
@@ -402,7 +416,8 @@ void* handle_client(void *args){
                 }
             }
             if(file_check == false){
-                string source_path="./"+file_name + to_string(chunk_no);
+                string source_path = FilePathMap[file_name] + to_string(chunk_no) + ".dat";
+                //string source_path="./"+file_name + to_string(chunk_no);
                 FILE *fp;
                 fp = fopen(source_path.c_str(),"r");
                 fseek(fp,0,SEEK_END);
@@ -424,7 +439,8 @@ void* handle_client(void *args){
                 fclose(fp);
             }
             else{
-                string source_path="./"+file_name;
+                string source_path = FilePathMap[file_name];
+                //string source_path="./"+file_name;
                 FILE *fp;
                 fp = fopen(source_path.c_str(),"r");
                 //fseek(fp,0,SEEK_SET);
@@ -861,6 +877,7 @@ int main(int argc,char *argv[]){
                         {
                             pthread_join(target_tid[i],NULL);
                             file_chunk_count[cmd_list[2]][i] = 1;
+                            FilePathMap[cmd_list[2]] = cmd_list[3] + cmd_list[2];
                         }
                         pthread_create(&target_tid[chunk_count], NULL, merge_it, (void*)&ptr);
                     }
