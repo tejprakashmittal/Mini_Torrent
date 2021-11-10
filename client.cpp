@@ -1,8 +1,10 @@
 #include<iostream>
 #include <stdlib.h>
 #include<unordered_map>
+#include<openssl/sha.h>
 #include<cmath>
 #include<string.h>
+#include <fstream> 
 #include<vector>
 #include <fcntl.h>
 #include<sstream>
@@ -22,7 +24,7 @@ string msg="";
 bool logged_in=false;
 
 //char buffer[BUFFER];
-pthread_mutex_t lock;
+pthread_mutex_t lock,lock2,lock3;
 vector<string> cmd_list;
 unordered_map<string,vector<int>> file_chunk_count;
 vector<string> parse_buffer(char buffer[]);
@@ -33,9 +35,16 @@ struct _download_it{
 };  //_args
 
 struct _merge_it{
-    string dest_file_path,file_name;
+    string dest_file_path,file_name,sha_hash;
     int start_chunk_index,end_chunk_index,chunk_count;
 };
+
+unsigned long long int find_size(string filepath){
+    FILE *fp;
+    fp = fopen(filepath.c_str(),"r");
+    fseek(fp,0,SEEK_SET);
+    return ftell(fp);
+}
 
 string getFileName(string filepath){
   int pos = filepath.find_last_of('/');
@@ -43,6 +52,53 @@ string getFileName(string filepath){
          return filepath.substr(pos+1);
     }
     return filepath;
+}
+
+string& getFile(string filepath) {
+	string *s = new string;
+	s->reserve(1024);
+	fstream fp;
+        
+	fp.open("./aaa.pdf",std::ios::in);
+	if(!(fp.is_open())){
+		fprintf(stderr,"Unable to open the file\n");
+		//exit(EXIT_FAILURE);
+	}
+	else {
+		string line;
+		while(fp >> line){
+			s->append(line);
+		}
+	}
+	fp.close();
+	return *s;
+}
+
+string getSha(string filepath){
+	string *bufer = &(getFile(filepath));
+
+	//Genrating hash of the file
+	array<unsigned char,SHA_DIGEST_LENGTH> digest;
+	SHA_CTX ctx;
+	//Initializing
+	SHA1_Init(&ctx);
+	SHA1_Update(&ctx,bufer->c_str(),bufer->size());
+	SHA1_Final(digest.data(),&ctx);
+
+	delete bufer;
+
+	array<char,SHA_DIGEST_LENGTH * 2 +1> mdString;
+	for(int i = 0 ; i < SHA_DIGEST_LENGTH ; ++i) {
+		sprintf(&(mdString[i*2]),"%02x",(unsigned int)digest[i]);
+	}
+	//fprintf(stdout,"\n\nHash of the file: %s\n" ,mdString.data());
+	string sha_val;
+
+	for(int i=0;i<40;i++){
+		sha_val.push_back(mdString[i]);
+	}
+    //cout<<endl<<sha_val.size();
+	return sha_val;
 }
 
 string get_bitmap(string ip,string port,string filename){
@@ -79,7 +135,6 @@ string get_bitmap(string ip,string port,string filename){
 }
 
 void* download_it(void* args){
-    cout<<"fourth"<<endl;
     pthread_mutex_lock(&lock);
     vector<string> cmd_list_buffer;
     vector<string> thread_args;
@@ -88,15 +143,12 @@ void* download_it(void* args){
     char peer_buffer[BUFFER];
 
     struct _download_it *temp_struct = (struct _download_it *)args; 
-cout<<"fifth"<<endl;
     s_serv.sin_port=htons(stoi(temp_struct->port));
     s_serv.sin_family=AF_INET;
     s_serv.sin_addr.s_addr=inet_addr(temp_struct->ip.c_str());
-    cout<<"six"<<endl;
     s_sock_fd=socket(PF_INET,SOCK_STREAM,IPPROTO_TCP);
     if(s_sock_fd == -1){
         cout<<"Error while socket creation"<<endl;
-        
     }
 
     setsockopt(s_sock_fd,SOL_SOCKET,SO_REUSEADDR,&status,sizeof(int));
@@ -104,9 +156,9 @@ cout<<"fifth"<<endl;
     if(connect(s_sock_fd,(struct sockaddr*)&s_serv,sizeof(s_serv)) == -1){
         perror(msg.c_str());
         cout<<"Error while connect syscall"<<endl;
+        fflush(stdout);
         pthread_exit(NULL);
     }
-    cout<<"After connect "<<endl;
 /*
 send download message and receive success message then start downlaoding the required chunk
 handlclient_method also needs to be modified to donload only required chunk
@@ -117,7 +169,6 @@ handlclient_method also needs to be modified to donload only required chunk
     read(s_sock_fd,peer_buffer,BUFFER);
     cmd_list_buffer.clear();
     cmd_list_buffer = parse_buffer(peer_buffer);
-    cout<<"seven"<<endl;
     fflush(stdout);
     cout<<"cmd list size "<<cmd_list_buffer.size()<<endl;
     if(cmd_list_buffer[0] != "success"){
@@ -126,8 +177,6 @@ handlclient_method also needs to be modified to donload only required chunk
         close(s_sock_fd);
         pthread_exit(NULL);
     }
-    cout<<"eigth"<<endl;
-    cout<<"after success message -- "<<cmd_list_buffer[0]<<endl;
     cmd_list_buffer.clear();
 
     int start_chunk = temp_struct->start_chunk_index;
@@ -144,10 +193,16 @@ handlclient_method also needs to be modified to donload only required chunk
             while(cnts > 0)
             {
                 int read_count = read(s_sock_fd,peer_buffer,BUFFER);
-                cout<<"Read_Count : "<<read_count<<endl;
+                //cout<<"Read_Count : "<<read_count<<endl;
+                // while(start_chunk != temp_struct->end_chunk_index && read_count < BUFFER)
+                // int read_count = read(s_sock_fd,peer_buffer,BUFFER);
                 fwrite(peer_buffer,sizeof(char),read_count,fp);
+                if(start_chunk != temp_struct->end_chunk_index && read_count < BUFFER){
+                    int read_count = read(s_sock_fd,peer_buffer,BUFFER);
+                    fwrite(peer_buffer,sizeof(char),read_count,fp);
+                }
                 //cout<<read_count<<endl;
-                if(read_count < BUFFER) break;
+                //if(read_count < BUFFER) break;
                 cnts--;
             }
             // int dest,read_count;
@@ -197,6 +252,13 @@ void* merge_it(void* args){
         fwrite(buff,sizeof(char),chunk_size,fp);
         fclose(_file);
     }
+    string sha_hashed = getSha(filepath);
+    string hashes = temp_struct->sha_hash;
+    if(sha_hashed == hashes){
+        cout<<"Hash_Matched"<<endl;
+        fflush(stdout);
+    }
+    cout<<sha_hashed<<endl<<hashes<<endl;
     fclose(fp);
     return NULL;
 }
@@ -226,6 +288,7 @@ string parse_cmd_list(){
 }
 
 vector<string> parse_buffer(char buffer[]){
+    pthread_mutex_lock(&lock2);
     vector<string> cmd_list_buffer;
     string cmd="";
     for(int i=1;i<BUFFER && buffer[i]!='\0';i++){
@@ -236,6 +299,7 @@ vector<string> parse_buffer(char buffer[]){
         else
         cmd.push_back(buffer[i]);
     }
+    pthread_mutex_unlock(&lock2);
     return cmd_list_buffer;
 }
 
@@ -284,13 +348,14 @@ bool validate_command(){
 
 void* handle_client(void *args){
     /*send and recv*/
+    //pthread_mutex_lock(&lock3);
     int client_socket=*((int*)args);
     char buffer[BUFFER];
     vector<string> cmd_list_buffer;
     vector<string> selection;
     bzero(buffer,BUFFER);
     read(client_socket,buffer,BUFFER);
-    cout<<"server_side_biffer1 "<<buffer<<endl;
+    //cout<<"server_side_biffer1 "<<buffer<<endl;
     selection = parse_buffer(buffer);
 
     if(selection[0] == "bitmap"){
@@ -313,17 +378,17 @@ void* handle_client(void *args){
             cmd_list_buffer.clear();
             bzero(buffer,BUFFER);
             read(client_socket,buffer,BUFFER);
-            cout<<"server_side_biffer2 "<<buffer<<endl;
-            fflush(stdout);
+            // cout<<"server_side_biffer2 "<<buffer<<endl;
+            // fflush(stdout);
             cmd_list_buffer = parse_buffer(buffer);
             string file_name=cmd_list_buffer[0];
-            int chunk_no = atoi(cmd_list_buffer[1].c_str());
-            cout<<"chunk no : "<<chunk_no<<endl;
+            int chunk_no = stoi(cmd_list_buffer[1].c_str());
+            //cout<<"chunk no : "<<chunk_no<<endl;
             fflush(stdout);
 
             bool file_check = true;
-            cout<<"File_Check -- "<<file_check<<endl;
-            fflush(stdout);
+            // cout<<"File_Check -- "<<file_check<<endl;
+            // fflush(stdout);
             for(int i=0;i<file_chunk_count[file_name].size();i++){
                 if(file_chunk_count[file_name][i] == 0){
                     file_check == false;
@@ -356,7 +421,7 @@ void* handle_client(void *args){
                 string source_path="./"+file_name;
                 FILE *fp;
                 fp = fopen(source_path.c_str(),"r");
-                fseek(fp,0,SEEK_SET);
+                //fseek(fp,0,SEEK_SET);
                 fseek(fp,0,SEEK_END);
                 double fsize = ftell(fp);
                 int total_chunks = ceil(fsize/524288);
@@ -366,8 +431,17 @@ void* handle_client(void *args){
                 if(chunk_no < total_chunks-1){
                     int cnts = 512;
                     while(cnts > 0){
-                        fread(buffer, sizeof(char), BUFFER, fp);
-                        write(client_socket,buffer,BUFFER);
+                        size_t cct = fread(buffer, sizeof(char), BUFFER, fp);
+                        // cout<<"Chunk no reading "<<chunk_no<<" "<<cct<<endl;
+                        // if (ferror (fp))
+                        // printf ("Error Writing to myfile.txt\n");
+                        // cout<<"socket "<<client_socket<<endl;
+                        //fflush(stdout);
+
+                       ssize_t cct2 = write(client_socket,buffer,BUFFER);
+                    //    while(cct2 < BUFFER)
+                    //    cct2 = write(client_socket,buffer,BUFFER);
+                        //cout<<"Chunk no writing "<<chunk_no<<" "<<cct2<<endl;
                         cnts--;
                     }
                 }
@@ -377,6 +451,7 @@ void* handle_client(void *args){
                     //double _buf_size = buf_size;
                     int cnts = buf_size/BUFFER;
                     int rem = buf_size - cnts*BUFFER;
+                    cout<<"Chunk No "<<chunk_no<<" "<<"size -- "<<buf_size<<" "<<"remaining_bytes -- "<<rem<<endl;
                     while(cnts > 0){
                         fread(buffer, sizeof(char), BUFFER, fp);
                         write(client_socket,buffer,BUFFER);
@@ -416,6 +491,7 @@ void* handle_client(void *args){
     /*close file and socket*/
     //close(client_socket);
     close(client_socket);
+    //pthread_mutex_unlock(&lock3);
     pthread_exit(NULL);
 }
 
@@ -547,7 +623,9 @@ int main(int argc,char *argv[]){
                 int chunks = chunkCount(cmd_list[1]);
                 file_chunk_count[getFileName(cmd_list[1])].resize(chunks,1);
                 cout<<"chunks -- "<<chunks<<endl;
-                cmd+=to_string(chunks)+'#';
+                string sha_val = getSha(getFileName(cmd_list[1]));
+                cout<<sha_val<<endl;
+                cmd+=to_string(chunks)+'#'+sha_val+'#';
             }
 
             write(skt,cmd.c_str(),cmd.size());
@@ -668,33 +746,30 @@ int main(int argc,char *argv[]){
                         // for(auto itr:cmd_list_buffer){
                         //     cout<<itr<<" ";
                         // }
-                        //cout<<cmd_list_buffer.size()<<endl;
-                        //fflush(stdout);
+                        cout<<cmd_list_buffer[cmd_list_buffer.size()-2]<<endl;
+                        cout<<cmd_list_buffer[cmd_list_buffer.size()-1]<<endl;
+                        cout<<cmd_list_buffer.size()<<endl;
+                        fflush(stdout);
 
-                        int chunk_count = stoi(cmd_list_buffer[cmd_list_buffer.size()-1]);
-                        int peers_count = (cmd_list_buffer.size()-1)/2;
+                        int chunk_count = stoi(cmd_list_buffer[cmd_list_buffer.size()-2]);
+                        int peers_count = (cmd_list_buffer.size()-2)/2;
                         cout<<"Number of peers -> "<<peers_count<<endl;
-                        vector<int> chunk_map(chunk_count,0);
 
                         vector<vector<pair<string,string>>> bitmap_collection(chunk_count);
-                        cout<<"first"<<endl;
-                        for(int i=0;i<cmd_list_buffer.size()-2;i=i+2){
+                        for(int i=0;i<cmd_list_buffer.size()-3;i=i+2){
                             string bitmap = get_bitmap(cmd_list_buffer[i],cmd_list_buffer[i+1],cmd_list[2]);
                             if(bitmap.size() != chunk_count){
                                 cout<<"bitmap size is less than chunk count"<<endl;
                                 fflush(stdout);
                             }
-                            cout<<"second"<<endl;
                             for(int j=0;j<bitmap.size();j++){
                                 if(bitmap[j] == '1')
                                 bitmap_collection[j].push_back({cmd_list_buffer[i],cmd_list_buffer[i+1]});
                             }
                         }
-                        cout<<"third"<<endl;
                         pthread_t target_tid[int(chunk_count)];
                         struct _download_it _args[int(chunk_count)]; 
                         for(int i=0;i<chunk_count;i++){
-                            cout<<"bitmap size"<<bitmap_collection[i].size()<<endl;
                             int index = rand() % bitmap_collection[i].size();
                             _args[i].start_chunk_index = i;
                             _args[i].end_chunk_index = chunk_count-1;
@@ -703,6 +778,7 @@ int main(int argc,char *argv[]){
                             _args[i].file_name = cmd_list[2];
                             _args[i].dest_file_path = cmd_list[3];
                             pthread_create(&target_tid[i], NULL, download_it, (void*)&_args[i]);
+                            //pthread_join(target_tid[i],NULL);
                         }
                     cout<<"Join required -- "<<endl;
                     fflush(stdout);
@@ -737,15 +813,20 @@ int main(int argc,char *argv[]){
                         }
                         */
                         //pthread_join(target_tid,NULL);
-                        pthread_mutex_destroy(&lock);
+                        //pthread_mutex_destroy(&lock);
                         struct _merge_it ptr;
                         ptr.file_name = cmd_list[2];
                         ptr.dest_file_path = cmd_list[3];
+                        ptr.sha_hash = cmd_list_buffer[cmd_list_buffer.size()-1];
+                        cout<<"ptr->sha "<<ptr.sha_hash<<endl;
                         ptr.start_chunk_index = 0;
                         ptr.end_chunk_index = chunk_count -1;
                         ptr.chunk_count = chunk_count;
                         for(int i=0;i<chunk_count;i++)
+                        {
                             pthread_join(target_tid[i],NULL);
+                            file_chunk_count[cmd_list[2]][i] = 1;
+                        }
                         pthread_create(&target_tid[int(chunk_count)], NULL, merge_it, (void*)&ptr);
                     }
                     else cout<<"---File is not available to download---";

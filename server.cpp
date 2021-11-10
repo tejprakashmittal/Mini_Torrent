@@ -19,7 +19,7 @@ vector<string> cmd_list;
 unordered_map<string, unordered_set<string>> groups;
 unordered_map<string, unordered_set<string>> pending_requests;
 unordered_map<string,unordered_map<string,set<pair<string,string>>>> all_files;
-unordered_map<string,string> file_chunk_count;
+unordered_map<string,pair<string,string>> file_chunk_count;
 unordered_map<string,string> group_owner;
 unordered_map<string,string> uid_ip_port;
 unordered_map<string,string> users_cred;
@@ -231,7 +231,7 @@ void *handle_client(void *args){
             if(all_files[cmd_list[2]][filename].find({cmd_list[3],cmd_list[4]}) == all_files[cmd_list[2]][filename].end())
             {
                 all_files[cmd_list[2]][filename].insert({cmd_list[3],cmd_list[4]});
-                file_chunk_count[filename] = cmd_list[5];
+                file_chunk_count[filename] = {cmd_list[5],cmd_list[6]};
                 msg = "---Successfully uploaded---";
                 write(client_socket,msg.c_str(),msg.size());
                 cout<<"---File---"<<filename<<"---Group---"<<cmd_list[2]<<endl;
@@ -264,7 +264,7 @@ void *handle_client(void *args){
                         auto uSet = all_files[cmd_list[1]][cmd_list[2]];
                         for(auto itr=uSet.begin();itr != uSet.end();itr++)
                             ip_port += (*itr).first +'#'+(*itr).second + '#';
-                        ip_port += file_chunk_count[cmd_list[2]] + '#';
+                        ip_port += file_chunk_count[cmd_list[2]].first + '#' + file_chunk_count[cmd_list[2]].second +'#';
                         all_files[cmd_list[1]][cmd_list[2]].insert({cmd_list[4],cmd_list[5]});
                     }
                 }
