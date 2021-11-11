@@ -90,7 +90,7 @@ string& getFile(string filepath) {
 	s->reserve(1024);
 	fstream fp;
         
-	fp.open("./aaa.pdf",std::ios::in);
+	fp.open(filepath.c_str(),std::ios::in);
 	if(!(fp.is_open())){
 		fprintf(stderr,"Unable to open the file\n");
 		//exit(EXIT_FAILURE);
@@ -282,14 +282,26 @@ void* merge_it(void* args){
         bzero(buff,chunk_size);
         fread(buff,sizeof(char),chunk_size,_file);
         fwrite(buff,sizeof(char),chunk_size,fp);
+        // if(remove(fpath.c_str()) != 0){
+        //     cout<<"Error while deleting the chunk"<<endl;
+        //     fflush(stdout);
+        // }
         fclose(_file);
     }
     string sha_hashed = getSha(filepath);
     if(sha_hashed == calculated_hash){
+        for(int i=0;i<temp_struct->chunk_count;i++){
+            string fpath = temp_struct->dest_file_path + temp_struct->file_name + to_string(i) +".dat";
+            if(remove(fpath.c_str()) != 0){
+                cout<<"Error while deleting the chunk"<<endl;
+                fflush(stdout);
+            }
+        }
         cout<<"---Downloaded successfully---"<<endl;
         fflush(stdout);
     }
-    //cout<<sha_hashed<<endl<<calculated_hash<<endl;
+    cout<<sha_hashed<<endl<<calculated_hash<<endl;
+    calculated_hash="";
     fclose(fp);
     return NULL;
 }
@@ -711,7 +723,7 @@ int main(int argc,char *argv[]){
                 int chunks = chunkCount(cmd_list[1]);
                 file_chunk_count[getFileName(cmd_list[1])].resize(chunks,1);
                 //cout<<"chunks -- "<<chunks<<endl;
-                string sha_val = getSha(getFileName(cmd_list[1]));
+                string sha_val = getSha(cmd_list[1]);
                 //cout<<sha_val<<endl;
                 cmd+=to_string(chunks)+'#'+sha_val+'#';
             }
