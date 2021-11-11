@@ -445,8 +445,8 @@ void* handle_client(void *args){
             cmd_list_buffer = parse_buffer(buffer);
             string file_name = cmd_list_buffer[0];
             int chunk_no = stoi(cmd_list_buffer[1].c_str());
-            cout<<"chunk no. -> "<<chunk_no<<endl;
-            fflush(stdout);
+            //cout<<"chunk no. -> "<<chunk_no<<endl;
+            //fflush(stdout);
 
             bool file_check = true;
             // cout<<"File_Check -- "<<file_check<<endl;
@@ -515,7 +515,7 @@ void* handle_client(void *args){
                     //double _buf_size = buf_size;
                     int cnts = buf_size/BUFFER;
                     int rem = buf_size - cnts*BUFFER;
-                    cout<<"Chunk No "<<chunk_no<<" "<<"size -- "<<buf_size<<" "<<"remaining_bytes -- "<<rem<<endl;
+                    //cout<<"Chunk No "<<chunk_no<<" "<<"size -- "<<buf_size<<" "<<"remaining_bytes -- "<<rem<<endl;
                     while(cnts > 0){
                         fread(buffer, sizeof(char), BUFFER, fp);
                         write(client_socket,buffer,BUFFER);
@@ -525,8 +525,8 @@ void* handle_client(void *args){
                         fread(buffer, sizeof(char), rem, fp);
                         write(client_socket,buffer,rem);
                     }
-                    cout<<"Last Chunk"<<endl;
-                    fflush(stdout);
+                    //cout<<"Last Chunk"<<endl;
+                    //fflush(stdout);
                 //}
                 }
             fclose(fp);
@@ -859,7 +859,7 @@ int main(int argc,char *argv[]){
 
                         int chunk_count = stoi(cmd_list_buffer[cmd_list_buffer.size()-2]);
                         int peers_count = (cmd_list_buffer.size()-2)/2;
-                        cout<<"Number of peers -> "<<peers_count<<endl;
+                        //cout<<"Number of peers -> "<<peers_count<<endl;
 
                         vector<vector<pair<string,string>>> bitmap_collection(chunk_count);
                         for(int i=0;i<cmd_list_buffer.size()-3;i=i+2){
@@ -873,7 +873,7 @@ int main(int argc,char *argv[]){
                                 bitmap_collection[j].push_back({cmd_list_buffer[i],cmd_list_buffer[i+1]});
                             }
                         }
-                        cout<<"bitmap collection size "<<bitmap_collection.size()<<endl;
+                        //cout<<"bitmap collection size "<<bitmap_collection.size()<<endl;
                         pthread_t target_tid[int(chunk_count)];
                         struct _download_it _args[int(chunk_count)]; 
                         for(int i=0;i<chunk_count;i++){
@@ -887,8 +887,8 @@ int main(int argc,char *argv[]){
                             pthread_create(&target_tid[i], NULL, download_it, (void*)&_args[i]);
                             //pthread_join(target_tid[i],NULL);
                         }
-                    cout<<"Join required -- "<<endl;
-                    fflush(stdout);
+                    // cout<<"Join required -- "<<endl;
+                    // fflush(stdout);
                     /*
                         int chunk_per_peer = ceil(chunk_count/peers_count);
 
