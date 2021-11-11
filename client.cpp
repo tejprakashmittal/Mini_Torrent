@@ -16,10 +16,12 @@
 #define QUEUE 10
 using namespace std;
 
-int peer_port;
 int status =1;
+int peer_port;
+int tracker_port;
 string peer_ip;
 string user_id;
+string tracker_ip;
 string msg="";
 string error_msg="";
 string calculated_hash="";
@@ -55,6 +57,17 @@ vector<string> splitArgs(string str){
         ip.push_back(str[i]);
     }
     return ipPort;
+}
+
+vector<string> split_file_args(string filepath){
+    FILE *fptr;
+    fptr = fopen(filepath.c_str(),"r");
+    char buff[500];
+    while(!feof(fptr)){
+        fread(buff,sizeof(char),500,fptr);
+    }
+    string str = buff;
+    return splitArgs(str);
 }
 
 unsigned long long int find_size(string filepath){
@@ -148,7 +161,7 @@ string get_bitmap(string ip,string port,string filename){
     write(s_sock_fd,temp_msg.c_str(),temp_msg.size());
     read(s_sock_fd,buff,BUFFER);
     cmd_list_buffer = parse_buffer(buff);
-    cout<<cmd_list_buffer[0]<<endl;
+    //cout<<cmd_list_buffer[0]<<endl;
     return cmd_list_buffer[0];
 }
 
@@ -273,10 +286,10 @@ void* merge_it(void* args){
     }
     string sha_hashed = getSha(filepath);
     if(sha_hashed == calculated_hash){
-        cout<<"Hash_Matched"<<endl;
+        cout<<"---Downloaded successfully---"<<endl;
         fflush(stdout);
     }
-    cout<<sha_hashed<<endl<<calculated_hash<<endl;
+    //cout<<sha_hashed<<endl<<calculated_hash<<endl;
     fclose(fp);
     return NULL;
 }
@@ -550,8 +563,8 @@ int init_client_mode(){
     char buffer[BUFFER];
     struct sockaddr_in server_addr;
     server_addr.sin_family=AF_INET;
-    server_addr.sin_addr.s_addr=inet_addr("127.0.0.1");
-    server_addr.sin_port=htons(9900);
+    server_addr.sin_addr.s_addr=inet_addr(tracker_ip.c_str());
+    server_addr.sin_port=htons(tracker_port);
 
     memset(buffer,'\0',sizeof(buffer[0]));
     //strcpy(buffer, argv[1]);
@@ -628,7 +641,18 @@ int main(int argc,char *argv[]){
     }
     peer_ip = ip_port_args[0];                               
     peer_port=stoi(ip_port_args[1]);
-    
+
+    ip_port_args.clear();
+    ip_port_args = split_file_args(argv[2]);
+
+    if(ip_port_args.size() < 2){
+        cout<<"Invalid Tracker IP or PORT"<<endl;
+        exit(0);
+    }
+
+    tracker_ip = ip_port_args[0];
+    tracker_port = stoi(ip_port_args[1]);
+
     int skt = init_client_mode();
     pthread_t t_serv_id;
     pthread_create(&t_serv_id,NULL,init_server_mode,NULL);
@@ -828,10 +852,10 @@ int main(int argc,char *argv[]){
                         //     cout<<itr<<" ";
                         // }
                         download_history.push_back({cmd_list[1],cmd_list[2]});
-                        cout<<cmd_list_buffer[cmd_list_buffer.size()-2]<<endl;
-                        cout<<cmd_list_buffer[cmd_list_buffer.size()-1]<<endl;
-                        cout<<cmd_list_buffer.size()<<endl;
-                        fflush(stdout);
+                        // cout<<cmd_list_buffer[cmd_list_buffer.size()-2]<<endl;
+                        // cout<<cmd_list_buffer[cmd_list_buffer.size()-1]<<endl;
+                        // cout<<cmd_list_buffer.size()<<endl;
+                        // fflush(stdout);
 
                         int chunk_count = stoi(cmd_list_buffer[cmd_list_buffer.size()-2]);
                         int peers_count = (cmd_list_buffer.size()-2)/2;

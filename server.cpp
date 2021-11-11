@@ -32,6 +32,31 @@ struct arg_struct {
     struct sockaddr_in client_addr;
 }args;
 
+vector<string> splitArgs(string str){
+	vector<string> ipPort;
+    string ip="",port="";
+	for(int i=0;i<str.size();i++){
+        if(str[i] == ':'){
+            ipPort.push_back(ip);
+            port = str.substr(i+1,str.size()-i-1);
+            ipPort.push_back(port);
+        }
+        ip.push_back(str[i]);
+    }
+    return ipPort;
+}
+
+vector<string> split_file_args(string filepath){
+    FILE *fptr;
+    fptr = fopen(filepath.c_str(),"r");
+    char buff[500];
+    while(!feof(fptr)){
+        fread(buff,sizeof(char),500,fptr);
+    }
+    string str = buff;
+    return splitArgs(str);
+}
+
 string getFileName(string filepath){
   int pos = filepath.find_last_of('/');
        if(pos!=string::npos){
@@ -412,7 +437,12 @@ void handle_client(int client_socket){
     pthread_exit(NULL);
 }
 
-int main(){
+int main(int argc,char *argv[]){
+    vector<string> ip_port_args = split_file_args(argv[1]);
+    if(ip_port_args.size() < 2){
+        cout<<"Invalid Tracker IP or PORT"<<endl;
+        exit(0);
+    }
     int server_socket,client_socket;
     struct sockaddr_in server_addr;
     struct sockaddr_in client_addr;
