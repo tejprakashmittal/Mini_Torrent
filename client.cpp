@@ -288,8 +288,12 @@ void* merge_it(void* args){
         // }
         fclose(_file);
     }
+    fclose(fp);
+    sleep(1);
     string sha_hashed = getSha(filepath);
     if(sha_hashed == calculated_hash){
+        cout<<"---Downloaded successfully---"<<endl;
+        fflush(stdout);
         for(int i=0;i<temp_struct->chunk_count;i++){
             string fpath = temp_struct->dest_file_path + temp_struct->file_name + to_string(i) +".dat";
             if(remove(fpath.c_str()) != 0){
@@ -297,12 +301,9 @@ void* merge_it(void* args){
                 fflush(stdout);
             }
         }
-        cout<<"---Downloaded successfully---"<<endl;
-        fflush(stdout);
     }
-    cout<<sha_hashed<<endl<<calculated_hash<<endl;
+    //cout<<sha_hashed<<endl<<calculated_hash<<endl;
     calculated_hash="";
-    fclose(fp);
     return NULL;
 }
 
